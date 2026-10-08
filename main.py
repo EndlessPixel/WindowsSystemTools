@@ -126,7 +126,7 @@ class SystemOptimizer(QMainWindow):
         main_layout.addWidget(splitter)
 
         # 定义普通功能分组
-normal_function_groups = {
+        normal_function_groups = {
     "系统工具": [
         ("打开任务管理器", "start taskmgr"),
         ("打开事件查看器", "start eventvwr"),
@@ -293,93 +293,166 @@ normal_function_groups = {
 
         # 定义管理员功能分组，直接用命令字符串
         admin_function_groups = {
-            "远程与连接": [
-                ("启用远程桌面", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f'),
-                ("关闭远程桌面", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 1 /f'),
-                ("启用无密码连接", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa" /v LimitBlankPasswordUse /t REG_DWORD /d 0 /f'),
-                ("关闭无密码连接", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa" /v LimitBlankPasswordUse /t REG_DWORD /d 1 /f'),
-                ("启用远程协助", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 1 /f && netsh advfirewall firewall set rule group="Remote Assistance" new enable=yes'),
-                ("关闭远程协助", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 0 /f && netsh advfirewall firewall set rule group="Remote Assistance" new enable=no')
-            ],
-            "安全防护": [
-                ("启用 Defender", "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $false\""),
-                ("禁用 Defender", "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $true\""),
-                ("用于内置管理员帐户的管理员批准模式", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v FilterAdministratorToken /t REG_DWORD /d 1 /f'),
-                ("关闭 Smartscreen 应用筛选器 (旧版)", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer" /v SmartScreenEnabled /t REG_SZ /d off /f'),
-                ("关闭 Smartscreen 应用筛选器 (新版)", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer" /v SmartScreenEnabled /t REG_SZ /d off /f & reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\PhishingFilter" /v EnabledV9 /t REG_DWORD /d 0 /f'),
-                ("关闭 UAC", 'powershell -Command "Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System -Name EnableLUA -Value 0"'),
-                ("启用 UAC", 'powershell -Command "Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System -Name EnableLUA -Value 1"'),
-                ("禁用 Windows 遥测数据收集", 'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" /v AllowTelemetry /t REG_DWORD /d 0 /f'),
-                ("启用 Windows 遥测数据收集", 'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" /v AllowTelemetry /t REG_DWORD /d 3 /f')
-            ],
-            "系统服务管理": [
-                ("启用 SysMain", "sc config SysMain start= auto && net start SysMain"),
-                ("禁用 SysMain", "net stop SysMain && sc config SysMain start= disabled"),
-                ("启用 Windows 索引", "sc config WSearch start= auto && net start WSearch"),
-                ("禁用 Windows 索引", "net stop WSearch && sc config WSearch start= disabled"),
-                ("禁用家庭组服务", "net stop HomeGroupListener && net stop HomeGroupProvider && sc config HomeGroupListener start= disabled && sc config HomeGroupProvider start= disabled"),
-                ("启用家庭组服务", "sc config HomeGroupListener start= auto && sc config HomeGroupProvider start= auto && net start HomeGroupListener && net start HomeGroupProvider"),
-                ("启用自动更新", "net start wuauserv"),
-                ("停止自动更新", "net stop wuauserv"),
-                ("启用自动时间同步", "sc config w32time start= auto && net start w32time"),
-                ("禁用自动时间同步", "net stop w32time && sc config w32time start= disabled")
-            ],
-            "系统维护清理": [
-                ("清空回收站", 'powershell -NoProfile -Command "Get-ChildItem -Path C:\\$Recycle.Bin -Force -Recurse | Remove-Item -Recurse -Force"'),
-                ("清理系统临时文件", 'powershell -Command "Get-ChildItem -Path $env:TEMP -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue"'),
-                ("清理 WinTemp", 'powershell -Command "Remove-Item -Path C:\\Windows\\Temp\\* -Recurse -Force -ErrorAction SilentlyContinue"'),
-                ("磁盘碎片整理C：", "defrag C: /U /V"),
-                ("优化磁盘C：", "defrag C: /O"),
-                ("清理 Windows 更新缓存", 'powershell -Command "Remove-Item -Path C:\\Windows\\SoftwareDistribution\\Download\\* -Recurse -Force -ErrorAction SilentlyContinue"'),
-                ("禁用 Windows 错误报告", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting" /v Disabled /t REG_DWORD /d 1 /f'),
-                ("启用 Windows 错误报告", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting" /v Disabled /t REG_DWORD /d 0 /f'),
-                ("禁用系统还原", 'powershell Get-ComputerRestorePoint | ForEach-Object { Disable-ComputerRestore -Drive $_.Drive }'),
-                ("启用系统还原", 'powershell Enable-ComputerRestore -Drive C:\\')
-            ],
-            "系统进程管理": [
-                ("重启资源管理器", "taskkill /im explorer.exe /f && start explorer.exe"),
-                ("杀死资源管理器", "taskkill /im explorer.exe /f"),
-                ("启动资源管理器", "start explorer.exe"),
-                ("杀死命令提示符", "taskkill /im cmd.exe /f"),
-            ], 
-            "系统启动设置": [
-                ("禁用快速启动", "powercfg /h off"),
-                ("启用快速启动", "powercfg /h on"),
-                ("禁用应用自动启动", 'reg add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /f && reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run" /f'),
-                ("启用应用自动启动", "echo 需手动配置注册表项恢复自动启动程序"),
-                ("禁用休眠功能", "powercfg /hibernate off"),
-                ("启用休眠功能", "powercfg /hibernate on")
-            ],
-            "网络管理配置": [
-                ("刷新 DNS", "ipconfig /flushdns"),
-                ("释放 IP", "ipconfig /release"),
-                ("重新获取 IP", "ipconfig /renew"),
-                ("重启 DNS 缓存", "net stop dnscache && net start dnscache"),
-                ("禁用网络发现", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters" /v AutoShareServer /t REG_DWORD /d 0 /f && reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters" /v DisallowUnencryptedGuestAuth /t REG_DWORD /d 1 /f'),
-                ("启用网络发现", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters" /v AutoShareServer /t REG_DWORD /d 1 /f && reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters" /v DisallowUnencryptedGuestAuth /t REG_DWORD /d 0 /f'),
-                ("重置 Winsock", "netsh winsock reset")
-            ],
-            "Windows 更新设置": [
-                ("禁用自动更新驱动", 'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v DontSearchWindowsUpdate /t REG_DWORD /d 1 /f && reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v SearchOrderConfig /t REG_DWORD /d 0 /f'),
-                ("启用自动更新驱动", 'reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v DontSearchWindowsUpdate /f && reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v SearchOrderConfig /f')
-            ],
-            "时间与时区管理": [
-                ("同步 Internet 时间", "w32tm /resync"),
-                ("查看当前时区", "tzutil /g"),
-                ("设为北京时区", 'tzutil /s "China Standard Time"')
-            ],
-            "视觉效果设置": [
-                ("低质量壁纸", 'reg add "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /t REG_DWORD /d 96 /f'),
-                ("默认质量壁纸", 'reg delete "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /f'),
-                ("高质量壁纸", 'reg add "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /t REG_DWORD /d 256 /f')
-            ],
-            "安全扫描": [
-                ("全盘扫描", 'powershell -Command "Start-MpScan -ScanType FullScan"')
-            ],
-            "系统还原": [
-                ("创建还原点", 'powershell -Command "Checkpoint-Computer -Description \'System Optimizer Restore Point\' -RestorePointType MODIFY_SETTINGS"')
-            ]
-        }
+    "远程与连接": [
+        ("启用远程桌面", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f'),
+        ("关闭远程桌面", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 1 /f'),
+        ("启用无密码连接", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa" /v LimitBlankPasswordUse /t REG_DWORD /d 0 /f'),
+        ("关闭无密码连接", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa" /v LimitBlankPasswordUse /t REG_DWORD /d 1 /f'),
+        ("启用远程协助", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 1 /f && netsh advfirewall firewall set rule group="Remote Assistance" new enable=yes'),
+        ("关闭远程协助", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 0 /f && netsh advfirewall firewall set rule group="Remote Assistance" new enable=no'),
+        ("设置RDP端口为3389", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v PortNumber /t REG_DWORD /d 3389 /f'),
+        ("限制RDP仅允许NLA", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 1 /f'),
+    ],
+
+    "安全防护": [
+        ("启用 Defender", "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $false\""),
+        ("禁用 Defender", "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $true\""),
+        ("用于内置管理员帐户的管理员批准模式", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v FilterAdministratorToken /t REG_DWORD /d 1 /f'),
+        ("关闭 Smartscreen 应用筛选器 (旧版)", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer" /v SmartScreenEnabled /t REG_SZ /d off /f'),
+        ("关闭 Smartscreen 应用筛选器 (新版)", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer" /v SmartScreenEnabled /t REG_SZ /d off /f & reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\PhishingFilter" /v EnabledV9 /t REG_DWORD /d 0 /f'),
+        ("关闭 UAC", 'powershell -Command "Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System -Name EnableLUA -Value 0"'),
+        ("启用 UAC", 'powershell -Command "Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System -Name EnableLUA -Value 1"'),
+        ("禁用 Windows 遥测数据收集", 'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" /v AllowTelemetry /t REG_DWORD /d 0 /f'),
+        ("启用 Windows 遥测数据收集", 'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" /v AllowTelemetry /t REG_DWORD /d 3 /f'),
+        ("禁用SMBv1协议", 'powershell -Command "Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol"'),
+        ("启用SMBv1协议", 'powershell -Command "Enable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol"'),
+        ("禁用PowerShell脚本执行", 'powershell -Command "Set-ExecutionPolicy Restricted -Force"'),
+        ("启用PowerShell脚本执行", 'powershell -Command "Set-ExecutionPolicy RemoteSigned -Force"'),
+    ],
+
+    "系统服务管理": [
+        ("启用 SysMain", "sc config SysMain start= auto && net start SysMain"),
+        ("禁用 SysMain", "net stop SysMain && sc config SysMain start= disabled"),
+        ("启用 Windows 索引", "sc config WSearch start= auto && net start WSearch"),
+        ("禁用 Windows 索引", "net stop WSearch && sc config WSearch start= disabled"),
+        ("禁用家庭组服务", "net stop HomeGroupListener && net stop HomeGroupProvider && sc config HomeGroupListener start= disabled && sc config HomeGroupProvider start= disabled"),
+        ("启用家庭组服务", "sc config HomeGroupListener start= auto && sc config HomeGroupProvider start= auto && net start HomeGroupListener && net start HomeGroupProvider"),
+        ("启用自动更新", "sc config wuauserv start= auto && net start wuauserv"),
+        ("停止自动更新", "net stop wuauserv && sc config wuauserv start= disabled"),
+        ("启用自动时间同步", "sc config w32time start= auto && net start w32time"),
+        ("禁用自动时间同步", "net stop w32time && sc config w32time start= disabled"),
+        ("启用打印后台处理", "sc config Spooler start= auto && net start Spooler"),
+        ("禁用打印后台处理", "net stop Spooler && sc config Spooler start= disabled"),
+    ],
+
+    "系统维护清理": [
+        ("清空回收站", 'powershell -NoProfile -Command "Get-ChildItem -Path C:\\$Recycle.Bin -Force -Recurse | Remove-Item -Recurse -Force"'),
+        ("清理系统临时文件", 'powershell -Command "Get-ChildItem -Path $env:TEMP -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue"'),
+        ("清理 WinTemp", 'powershell -Command "Remove-Item -Path C:\\Windows\\Temp\\* -Recurse -Force -ErrorAction SilentlyContinue"'),
+        ("磁盘碎片整理C：", "defrag C: /U /V"),
+        ("优化磁盘C：", "defrag C: /O"),
+        ("清理 Windows 更新缓存", 'powershell -Command "Stop-Service wuauserv; Remove-Item -Path C:\\Windows\\SoftwareDistribution\\Download\\* -Recurse -Force -ErrorAction SilentlyContinue; Start-Service wuauserv"'),
+        ("禁用 Windows 错误报告", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting" /v Disabled /t REG_DWORD /d 1 /f'),
+        ("启用 Windows 错误报告", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting" /v Disabled /t REG_DWORD /d 0 /f'),
+        ("禁用系统还原", "powershell Disable-ComputerRestore -Drive C:\\"),
+        ("启用系统还原", "powershell Enable-ComputerRestore -Drive C:\\"),
+        ("清理组件存储(无破坏)", "dism /Online /Cleanup-Image /StartComponentCleanup"),
+        ("扫描系统组件完整性", "dism /Online /Cleanup-Image /ScanHealth"),
+        ("修复系统组件", "dism /Online /Cleanup-Image /RestoreHealth"),
+        ("修复系统文件", "sfc /scannow"),
+    ],
+
+    "系统进程管理": [
+        ("重启资源管理器", "taskkill /im explorer.exe /f && start explorer.exe"),
+        ("杀死资源管理器", "taskkill /im explorer.exe /f"),
+        ("启动资源管理器", "start explorer.exe"),
+        ("杀死命令提示符", "taskkill /im cmd.exe /f"),
+        ("结束无响应任务", 'powershell -Command "Get-Process | Where-Object { $_.Responding -eq $false } | Stop-Process -Force"'),
+    ],
+
+    "系统启动设置": [
+        ("禁用快速启动", "powercfg /h off"),
+        ("启用快速启动", "powercfg /h on"),
+        ("禁用应用自动启动", 'reg add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /f && reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run" /f'),
+        ("启用应用自动启动", "echo 需手动配置注册表项恢复自动启动程序"),
+        ("禁用休眠功能", "powercfg /hibernate off"),
+        ("启用休眠功能", "powercfg /hibernate on"),
+        ("启用传统登录界面", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v dontdisplaylastusername /t REG_DWORD /d 0 /f'),
+        ("禁用传统登录界面", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v dontdisplaylastusername /t REG_DWORD /d 1 /f'),
+    ],
+
+    "网络管理配置": [
+        ("刷新 DNS", "ipconfig /flushdns"),
+        ("释放 IP", "ipconfig /release"),
+        ("重新获取 IP", "ipconfig /renew"),
+        ("重启 DNS 缓存", "net stop dnscache && net start dnscache"),
+        ("禁用网络发现", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters" /v AutoShareServer /t REG_DWORD /d 0 /f && reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters" /v DisallowUnencryptedGuestAuth /t REG_DWORD /d 1 /f'),
+        ("启用网络发现", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters" /v AutoShareServer /t REG_DWORD /d 1 /f && reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters" /v DisallowUnencryptedGuestAuth /t REG_DWORD /d 0 /f'),
+        ("重置 Winsock", "netsh winsock reset"),
+        ("重置 TCP/IP 协议栈", "netsh int ip reset"),
+        ("查看所有网络连接", "netstat -ano"),
+        ("显示ARP缓存表", "arp -a"),
+        ("显示路由表", "route print"),
+    ],
+
+    "Windows 更新设置": [
+        ("禁用自动更新驱动", 'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v DontSearchWindowsUpdate /t REG_DWORD /d 1 /f && reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v SearchOrderConfig /t REG_DWORD /d 0 /f'),
+        ("启用自动更新驱动", 'reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v DontSearchWindowsUpdate /f && reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v SearchOrderConfig /f'),
+        ("暂停Windows更新7天", 'powershell -Command "Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings -Name PauseUpdatesExpiryTime -Value (Get-Date).AddDays(7).ToString()"'),
+        ("恢复Windows更新", 'powershell -Command "Remove-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings -Name PauseUpdatesExpiryTime"'),
+    ],
+
+    "时间与时区管理": [
+        ("同步 Internet 时间", "w32tm /resync"),
+        ("查看当前时区", "tzutil /g"),
+        ("设为北京时区", 'tzutil /s "China Standard Time"'),
+        ("设为香港时区", 'tzutil /s "China Standard Time"'),
+        ("设为UTC时区", 'tzutil /s "UTC"'),
+    ],
+
+    "视觉效果设置": [
+        ("低质量壁纸", 'reg add "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /t REG_DWORD /d 96 /f'),
+        ("默认质量壁纸", 'reg delete "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /f'),
+        ("高质量壁纸", 'reg add "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /t REG_DWORD /d 256 /f'),
+        ("调整为最佳性能", 'powershell -Command "Set-ItemProperty -Path HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects -Name VisualFXSetting -Value 2"'),
+        ("恢复为系统默认视觉效果", 'powershell -Command "Remove-ItemProperty -Path HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects -Name VisualFXSetting"'),
+    ],
+
+    "安全扫描": [
+        ("全盘扫描", 'powershell -Command "Start-MpScan -ScanType FullScan"'),
+        ("快速扫描", 'powershell -Command "Start-MpScan -ScanType QuickScan"'),
+        ("更新Defender病毒库", 'powershell -Command "Update-MpSignature"'),
+    ],
+
+    "系统还原": [
+        ("创建还原点", 'powershell -Command "Checkpoint-Computer -Description \'System Optimizer Restore Point\' -RestorePointType MODIFY_SETTINGS"'),
+        ("列出所有还原点", 'powershell -Command "Get-ComputerRestorePoint"'),
+        ("删除所有还原点", 'powershell -Command "Get-ComputerRestorePoint | ForEach-Object { Delete-ComputerRestorePoint -RestorePoint $_ }"'),
+    ],
+
+    "电源管理": [
+        ("设置为高性能电源计划", 'powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'),
+        ("设置为平衡电源计划", 'powercfg -setactive 381b4222-f694-41f0-9685-ff5bb260df2e'),
+        ("设置为节能电源计划", 'powercfg -setactive a1841308-3541-4fab-bc81-f71556f20b4a'),
+        ("查看当前电源计划", "powercfg /getactivescheme"),
+        ("禁用显示器睡眠", 'powercfg -change -monitor-timeout-ac 0'),
+        ("启用显示器睡眠(15分钟)", 'powercfg -change -monitor-timeout-ac 15'),
+    ],
+
+    "存储与磁盘管理": [
+        ("列出所有磁盘", 'powershell -Command "Get-Disk"'),
+        ("列出所有分区", 'powershell -Command "Get-Partition"'),
+        ("查看磁盘使用情况", 'powershell -Command "Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{Name=\'Used(GB)\';Expression={[math]::Round($_.Used/1GB,2)}}, @{Name=\'Free(GB)\';Expression={[math]::Round($_.Free/1GB,2)}}"'),
+        ("优化所有磁盘", 'powershell -Command "Optimize-Volume -DriveLetter C,D,E -ReTrim -Verbose"'),
+    ],
+
+    "用户与权限管理": [
+        ("列出本地用户", 'powershell -Command "Get-LocalUser"'),
+        ("列出本地用户组", 'powershell -Command "Get-LocalGroup"'),
+        ("启用Guest账户", 'powershell -Command "Enable-LocalUser -Name Guest"'),
+        ("禁用Guest账户", 'powershell -Command "Disable-LocalUser -Name Guest"'),
+        ("创建新用户", 'powershell -Command "New-LocalUser -Name \"NewUser\" -Password (ConvertTo-SecureString \"P@ssw0rd\" -AsPlainText -Force)"'),
+        ("将用户加入管理员组", 'powershell -Command "Add-LocalGroupMember -Group Administrators -Member \"NewUser\""'),
+    ],
+
+    "日志与事件管理": [
+        ("导出系统日志", 'powershell -Command "wevtutil epl System C:\\system_log.evtx"'),
+        ("导出应用程序日志", 'powershell -Command "wevtutil epl Application C:\\app_log.evtx"'),
+        ("清空系统日志", 'powershell -Command "wevtutil cl System"'),
+        ("清空应用程序日志", 'powershell -Command "wevtutil cl Application"'),
+        ("查看最近10条系统错误", 'powershell -Command "Get-EventLog -LogName System -EntryType Error -Newest 10"'),
+    ]
+}
 
         # 创建管理员功能选项卡
         admin_tab = QWidget()
