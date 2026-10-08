@@ -4,129 +4,146 @@
 # 版权所有 (C) 2024 - 2026 EndlessPixel 由 system_mini 保留所有权利。
 ###############################################################################
 
-import sys, os, subprocess, ctypes, psutil, threading, winreg
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QTextEdit, QGridLayout, QLabel, QMessageBox, QLineEdit, QTabWidget, QSizePolicy, QSplitter, QStyleFactory
-from PyQt5.QtCore import Qt, QTimer, Q_ARG, QMetaObject, pyqtSignal
+import sys, os, subprocess, ctypes, threading
+import psutil
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QTextEdit,
+    QGridLayout, QLabel, QMessageBox, QLineEdit, QTabWidget, QSizePolicy, QSplitter
+)
+from PyQt5.QtCore import Qt, QTimer, Q_ARG, QMetaObject
 from PyQt5.QtGui import QIcon
 
-# 在 QApplication 创建之前设置高 DPI 缩放属性
+# ---------------------------------------------------------------------------
+# 应用常量
+# ---------------------------------------------------------------------------
+APP_NAME    = "系统优化工具"
+APP_VERSION = "b1.1"
+
+# ---------------------------------------------------------------------------
+# 高 DPI 缩放属性（必须在 QApplication 创建之前设置）
+# ---------------------------------------------------------------------------
 if hasattr(Qt, 'AA_EnableHighDpiScaling'):
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
-# 检查是否以管理员身份运行
+# ---------------------------------------------------------------------------
+# 统一样式
+# ---------------------------------------------------------------------------
+BTN_STYLE = """
+QPushButton {
+    background-color: #2196F3;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 150px;
+}
+QPushButton:hover { background-color: #1976D2; }
+QPushButton:pressed { background-color: #1565C0; }
+"""
+
+CUSTOM_BTN_STYLE = """
+QPushButton {
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+QPushButton:hover { background-color: #45a049; }
+QPushButton:pressed { background-color: #3e8e41; }
+"""
+
+INPUT_STYLE = """
+QLineEdit {
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 14px;
+}
+QLineEdit:focus { border-color: #2196F3; }
+"""
+
+LABEL_STYLE = """
+QLabel {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+"""
+
+# ---------------------------------------------------------------------------
+# 通用工具函数
+# ---------------------------------------------------------------------------
 def is_admin():
+    """判断当前进程是否具有管理员权限"""
     try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
         return False
 
-# 执行 Shell 命令并输出到日志
+
+def _log(log_widget, html):
+    """线程安全地向日志控件追加 HTML 内容"""
+    QMetaObject.invokeMethod(
+        log_widget, "append", Qt.QueuedConnection, Q_ARG(str, html)
+    )
+
+
 def run_command(command, log_widget):
+    """在后台线程中执行命令，并将结果以彩色 HTML 形式输出到日志"""
     def execute():
-        def append_text(text):
-            log_widget.append(text)
-
+        _log(log_widget, f'<span style="color: blue;">PS C:\\Windows\\System32 > {command}</span>')
+        _log(log_widget, '')
         try:
-            result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            # 使用 HTML 格式设置命令显示为蓝色
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, f'<span style="color: blue;">PS C:\\Windows\\System32 > {command}</span>'))
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection, Q_ARG(str, ''))
-            # 使用 HTML 格式设置标准输出为黑色
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, f'<span style="color: black;">{result.stdout}</span>'))
-            # 使用 HTML 格式设置成功信息为绿色
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, '<span style="color: green;">命令执行成功</span>'))
+            result = subprocess.run(
+                command, shell=True, check=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            _log(log_widget, f'<span style="color: black;">{result.stdout}</span>')
+            _log(log_widget, '<span style="color: green;">命令执行成功</span>')
             print("命令执行成功")
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection, Q_ARG(str, ''))
+            _log(log_widget, '')
         except subprocess.CalledProcessError as e:
-            # 使用 HTML 格式设置命令显示为蓝色
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, f'<span style="color: blue;">PS C:\\Windows\\System32 > {command}</span>'))
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection, Q_ARG(str, ''))
-            # 使用 HTML 格式设置错误信息为红色
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, f'<span style="color: red;">{e.stderr}</span>'))
-            # 使用 HTML 格式设置失败信息为红色
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, '<span style="color: red;">命令执行失败</span>'))
+            _log(log_widget, f'<span style="color: red;">{e.stderr}</span>')
+            _log(log_widget, '<span style="color: red;">命令执行失败</span>')
             print("命令执行失败")
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection, Q_ARG(str, ''))
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, '<span style="color: red;">请检查:</span>'))
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, '<span style="color: red;"> · 命令是否正确</span>'))
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, '<span style="color: red;"> · 权限是否足够</span>'))
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, '<span style="color: red;"> · 系统环境是否配置正确</span>'))
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, '<span style="color: red;"> · 系统版本是否支持 </span>'))
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, '<span style="color: red;"> · 文件是否完整</span>'))
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, '<span style="color: red;"> · 其他可能的错误</span>'))
+            _log(log_widget, '')
+            _log(log_widget, '<span style="color: red;">请检查:</span>')
+            for tip in (
+                "· 命令是否正确",
+                "· 权限是否足够",
+                "· 系统环境是否配置正确",
+                "· 系统版本是否支持",
+                "· 文件是否完整",
+                "· 其他可能的错误",
+            ):
+                _log(log_widget, f'<span style="color: red;"> {tip}</span>')
         except Exception as e:
-            QMetaObject.invokeMethod(log_widget, "append", Qt.QueuedConnection,
-                                     Q_ARG(str, f'<span style="color: red;">发生未知错误: {str(e)}</span>'))
+            _log(log_widget, f'<span style="color: red;">发生未知错误: {str(e)}</span>')
 
-    # 在新线程中执行命令
-    thread = threading.Thread(target=execute)
-    thread.start()
+    threading.Thread(target=execute, daemon=True).start()
 
-# 确认对话框
+
 def confirm_action(parent, message):
-    reply = QMessageBox.question(parent, '确认', message, QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+    """弹出确认对话框"""
+    reply = QMessageBox.question(
+        parent, '确认', message,
+        QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+    )
     return reply == QMessageBox.Yes
 
-# 主窗口类
-class SystemOptimizer(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        # 设置窗口图标
-        icon_path = "app_icon.ico"  # 图标文件路径，确保图标文件和脚本在同一目录下
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
-        else:
-            print(f"图标文件 {icon_path} 不存在，请检查路径。")
 
-        self.setWindowTitle("系统优化工具")
-        self.resize(800, 450)
-
-        # 设置全局字体大小
-        font = self.font()
-        font.setPointSize(10)  # 可根据实际情况调整字体大小
-        self.setFont(font)
-
-        main_widget = QWidget()
-        self.setCentralWidget(main_widget)
-
-        main_layout = QVBoxLayout(main_widget)
-
-        self.log_text = QTextEdit()
-        self.log_text.setReadOnly(True)
-        self.log_text.setAcceptRichText(True)
-        # 指定可用字体并设置字体大小
-        font = self.log_text.font()
-        font.setFamily("Microsoft YaHei")
-        font.setPointSize(10)  # 可根据实际情况调整字体大小
-        self.log_text.setFont(font)
-
-        self.tab_widget = QTabWidget()
-
-        splitter = QSplitter(Qt.Vertical)
-        splitter.addWidget(self.log_text)
-        splitter.addWidget(self.tab_widget)
-
-        splitter.setSizes([200, 400])
-
-        main_layout.addWidget(splitter)
-
-        # 定义普通功能分组
-        normal_function_groups = {
+# ---------------------------------------------------------------------------
+# 普通功能分组
+# ---------------------------------------------------------------------------
+NORMAL_FUNCTION_GROUPS = {
     "系统工具": [
         ("打开任务管理器", "start taskmgr"),
         ("打开事件查看器", "start eventvwr"),
@@ -149,7 +166,6 @@ class SystemOptimizer(QMainWindow):
         ("打开证书管理", "start certmgr.msc"),
         ("打开本地安全策略", "start secpol.msc"),
     ],
-
     "资源管理": [
         ("打开文件资源管理器", "start explorer"),
         ("打开磁盘管理", "start diskmgmt.msc"),
@@ -164,7 +180,6 @@ class SystemOptimizer(QMainWindow):
         ("打开系统属性", "start sysdm.cpl"),
         ("打开环境变量设置", "powershell rundll32 sysdm.cpl,EditEnvironmentVariables"),
     ],
-
     "网络与安全": [
         ("打开网络连接", "start ncpa.cpl"),
         ("打开防火墙设置", "start firewall.cpl"),
@@ -184,7 +199,6 @@ class SystemOptimizer(QMainWindow):
         ("查看IP配置", "powershell ipconfig /all"),
         ("测试网络连通性(谷歌)", "powershell ping 8.8.8.8"),
     ],
-
     "命令交互": [
         ("打开命令提示符", "start cmd"),
         ("打开 Windows PowerShell", "start powershell"),
@@ -195,7 +209,6 @@ class SystemOptimizer(QMainWindow):
         ("打开Python交互环境", "start python"),
         ("打开Node.js交互环境", "start node"),
     ],
-
     "多媒体工具": [
         ("打开计算器", "start calc"),
         ("打开画图", "start mspaint"),
@@ -209,7 +222,6 @@ class SystemOptimizer(QMainWindow):
         ("打开声音控制面板", "start mmsys.cpl"),
         ("打开显示颜色校准", "start dccw"),
     ],
-
     "系统设置": [
         ("打开显示设置", "start ms-settings:display"),
         ("打开声音设置", "start ms-settings:sound"),
@@ -230,7 +242,6 @@ class SystemOptimizer(QMainWindow):
         ("打开应用执行别名", "start ms-settings:appsforwebsites"),
         ("打开开发者选项", "start ms-settings:developers"),
     ],
-
     "办公与效率": [
         ("打开写字板", "start write"),
         ("打开字符映射表", "start charmap"),
@@ -243,7 +254,6 @@ class SystemOptimizer(QMainWindow):
         ("打开语音识别", "start ms-settings:speech"),
         ("打开任务视图", "powershell explorer.exe shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}"),
     ],
-
     "运维与高级功能": [
         ("打开组策略结果", "start rsop.msc"),
         ("打开Windows更新日志", "powershell Get-WindowsUpdateLog"),
@@ -257,7 +267,6 @@ class SystemOptimizer(QMainWindow):
         ("休眠", "powershell rundll32 powrprof.dll,SetSuspendState Hibernate"),
         ("睡眠", "powershell rundll32 powrprof.dll,SetSuspendState Standby"),
     ],
-
     "WSL / 开发工具": [
         ("打开WSL终端", "wsl"),
         ("打开WSL(默认发行版)", "wsl ~"),
@@ -266,33 +275,13 @@ class SystemOptimizer(QMainWindow):
         ("打开Git Bash", "start \"\" \"C:\\Program Files\\Git\\git-bash.exe\""),
         ("打开VS Code", "start code"),
         ("打开Notepad++", "start notepad++"),
-    ]
+    ],
 }
 
-
-        # 创建普通功能选项卡
-        normal_tab = QWidget()
-        normal_layout = QVBoxLayout(normal_tab)
-        normal_sub_tab = QTabWidget()
-        for group_name, group_buttons in normal_function_groups.items():
-            sub_tab = QWidget()
-            sub_layout = QVBoxLayout(sub_tab)
-            columns = 3
-            grid_layout = QGridLayout()
-            for index, (button_text, command) in enumerate(group_buttons):
-                row = index // columns
-                col = index % columns
-                self.add_button(grid_layout, button_text, command, self.log_text, row, col)
-            sub_layout.addLayout(grid_layout)
-            # 添加普通功能手动执行命令的输入框和按钮
-            self.add_custom_command(sub_layout, "手动执行命令", self.log_text, sub_layout.count(), 0)
-            normal_sub_tab.addTab(sub_tab, group_name)
-        normal_layout.addWidget(normal_sub_tab)
-
-        self.tab_widget.addTab(normal_tab, "普通功能")
-
-        # 定义管理员功能分组，直接用命令字符串
-        admin_function_groups = {
+# ---------------------------------------------------------------------------
+# 管理员功能分组
+# ---------------------------------------------------------------------------
+ADMIN_FUNCTION_GROUPS = {
     "远程与连接": [
         ("启用远程桌面", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f'),
         ("关闭远程桌面", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 1 /f'),
@@ -303,7 +292,6 @@ class SystemOptimizer(QMainWindow):
         ("设置RDP端口为3389", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v PortNumber /t REG_DWORD /d 3389 /f'),
         ("限制RDP仅允许NLA", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 1 /f'),
     ],
-
     "安全防护": [
         ("启用 Defender", "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $false\""),
         ("禁用 Defender", "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $true\""),
@@ -319,7 +307,6 @@ class SystemOptimizer(QMainWindow):
         ("禁用PowerShell脚本执行", 'powershell -Command "Set-ExecutionPolicy Restricted -Force"'),
         ("启用PowerShell脚本执行", 'powershell -Command "Set-ExecutionPolicy RemoteSigned -Force"'),
     ],
-
     "系统服务管理": [
         ("启用 SysMain", "sc config SysMain start= auto && net start SysMain"),
         ("禁用 SysMain", "net stop SysMain && sc config SysMain start= disabled"),
@@ -334,7 +321,6 @@ class SystemOptimizer(QMainWindow):
         ("启用打印后台处理", "sc config Spooler start= auto && net start Spooler"),
         ("禁用打印后台处理", "net stop Spooler && sc config Spooler start= disabled"),
     ],
-
     "系统维护清理": [
         ("清空回收站", 'powershell -NoProfile -Command "Get-ChildItem -Path C:\\$Recycle.Bin -Force -Recurse | Remove-Item -Recurse -Force"'),
         ("清理系统临时文件", 'powershell -Command "Get-ChildItem -Path $env:TEMP -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue"'),
@@ -351,7 +337,6 @@ class SystemOptimizer(QMainWindow):
         ("修复系统组件", "dism /Online /Cleanup-Image /RestoreHealth"),
         ("修复系统文件", "sfc /scannow"),
     ],
-
     "系统进程管理": [
         ("重启资源管理器", "taskkill /im explorer.exe /f && start explorer.exe"),
         ("杀死资源管理器", "taskkill /im explorer.exe /f"),
@@ -359,7 +344,6 @@ class SystemOptimizer(QMainWindow):
         ("杀死命令提示符", "taskkill /im cmd.exe /f"),
         ("结束无响应任务", 'powershell -Command "Get-Process | Where-Object { $_.Responding -eq $false } | Stop-Process -Force"'),
     ],
-
     "系统启动设置": [
         ("禁用快速启动", "powercfg /h off"),
         ("启用快速启动", "powercfg /h on"),
@@ -370,7 +354,6 @@ class SystemOptimizer(QMainWindow):
         ("启用传统登录界面", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v dontdisplaylastusername /t REG_DWORD /d 0 /f'),
         ("禁用传统登录界面", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v dontdisplaylastusername /t REG_DWORD /d 1 /f'),
     ],
-
     "网络管理配置": [
         ("刷新 DNS", "ipconfig /flushdns"),
         ("释放 IP", "ipconfig /release"),
@@ -384,14 +367,12 @@ class SystemOptimizer(QMainWindow):
         ("显示ARP缓存表", "arp -a"),
         ("显示路由表", "route print"),
     ],
-
     "Windows 更新设置": [
         ("禁用自动更新驱动", 'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v DontSearchWindowsUpdate /t REG_DWORD /d 1 /f && reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v SearchOrderConfig /t REG_DWORD /d 0 /f'),
         ("启用自动更新驱动", 'reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v DontSearchWindowsUpdate /f && reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v SearchOrderConfig /f'),
         ("暂停Windows更新7天", 'powershell -Command "Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings -Name PauseUpdatesExpiryTime -Value (Get-Date).AddDays(7).ToString()"'),
         ("恢复Windows更新", 'powershell -Command "Remove-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings -Name PauseUpdatesExpiryTime"'),
     ],
-
     "时间与时区管理": [
         ("同步 Internet 时间", "w32tm /resync"),
         ("查看当前时区", "tzutil /g"),
@@ -399,7 +380,6 @@ class SystemOptimizer(QMainWindow):
         ("设为香港时区", 'tzutil /s "China Standard Time"'),
         ("设为UTC时区", 'tzutil /s "UTC"'),
     ],
-
     "视觉效果设置": [
         ("低质量壁纸", 'reg add "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /t REG_DWORD /d 96 /f'),
         ("默认质量壁纸", 'reg delete "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /f'),
@@ -407,19 +387,16 @@ class SystemOptimizer(QMainWindow):
         ("调整为最佳性能", 'powershell -Command "Set-ItemProperty -Path HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects -Name VisualFXSetting -Value 2"'),
         ("恢复为系统默认视觉效果", 'powershell -Command "Remove-ItemProperty -Path HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects -Name VisualFXSetting"'),
     ],
-
     "安全扫描": [
         ("全盘扫描", 'powershell -Command "Start-MpScan -ScanType FullScan"'),
         ("快速扫描", 'powershell -Command "Start-MpScan -ScanType QuickScan"'),
         ("更新Defender病毒库", 'powershell -Command "Update-MpSignature"'),
     ],
-
     "系统还原": [
         ("创建还原点", 'powershell -Command "Checkpoint-Computer -Description \'System Optimizer Restore Point\' -RestorePointType MODIFY_SETTINGS"'),
         ("列出所有还原点", 'powershell -Command "Get-ComputerRestorePoint"'),
         ("删除所有还原点", 'powershell -Command "Get-ComputerRestorePoint | ForEach-Object { Delete-ComputerRestorePoint -RestorePoint $_ }"'),
     ],
-
     "电源管理": [
         ("设置为高性能电源计划", 'powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'),
         ("设置为平衡电源计划", 'powercfg -setactive 381b4222-f694-41f0-9685-ff5bb260df2e'),
@@ -428,14 +405,12 @@ class SystemOptimizer(QMainWindow):
         ("禁用显示器睡眠", 'powercfg -change -monitor-timeout-ac 0'),
         ("启用显示器睡眠(15分钟)", 'powercfg -change -monitor-timeout-ac 15'),
     ],
-
     "存储与磁盘管理": [
         ("列出所有磁盘", 'powershell -Command "Get-Disk"'),
         ("列出所有分区", 'powershell -Command "Get-Partition"'),
         ("查看磁盘使用情况", 'powershell -Command "Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{Name=\'Used(GB)\';Expression={[math]::Round($_.Used/1GB,2)}}, @{Name=\'Free(GB)\';Expression={[math]::Round($_.Free/1GB,2)}}"'),
         ("优化所有磁盘", 'powershell -Command "Optimize-Volume -DriveLetter C,D,E -ReTrim -Verbose"'),
     ],
-
     "用户与权限管理": [
         ("列出本地用户", 'powershell -Command "Get-LocalUser"'),
         ("列出本地用户组", 'powershell -Command "Get-LocalGroup"'),
@@ -444,262 +419,242 @@ class SystemOptimizer(QMainWindow):
         ("创建新用户", 'powershell -Command "New-LocalUser -Name \"NewUser\" -Password (ConvertTo-SecureString \"P@ssw0rd\" -AsPlainText -Force)"'),
         ("将用户加入管理员组", 'powershell -Command "Add-LocalGroupMember -Group Administrators -Member \"NewUser\""'),
     ],
-
     "日志与事件管理": [
         ("导出系统日志", 'powershell -Command "wevtutil epl System C:\\system_log.evtx"'),
         ("导出应用程序日志", 'powershell -Command "wevtutil epl Application C:\\app_log.evtx"'),
         ("清空系统日志", 'powershell -Command "wevtutil cl System"'),
         ("清空应用程序日志", 'powershell -Command "wevtutil cl Application"'),
         ("查看最近10条系统错误", 'powershell -Command "Get-EventLog -LogName System -EntryType Error -Newest 10"'),
-    ]
+    ],
 }
 
-        # 创建管理员功能选项卡
-        admin_tab = QWidget()
-        admin_layout = QVBoxLayout(admin_tab)
-        admin_sub_tab = QTabWidget()
-        for group_name, group_buttons in admin_function_groups.items():
-            sub_tab = QWidget()
-            sub_layout = QVBoxLayout(sub_tab)
-            columns = 3
-            grid_layout = QGridLayout()
-            for index, (button_text, command) in enumerate(group_buttons):
-                row = index // columns
-                col = index % columns
-                self.add_button(grid_layout, button_text, command, self.log_text, row, col)
-            sub_layout.addLayout(grid_layout)
-            # 添加管理员功能手动执行命令的输入框和按钮
-            self.add_custom_command(sub_layout, "手动执行命令", self.log_text, sub_layout.count(), 0)
-            admin_sub_tab.addTab(sub_tab, group_name)
-        admin_layout.addWidget(admin_sub_tab)
 
-        self.tab_widget.addTab(admin_tab, "管理员功能")
+# ---------------------------------------------------------------------------
+# 主窗口
+# ---------------------------------------------------------------------------
+class SystemOptimizer(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
-        # 根据是否具有管理员权限，启用或禁用管理员功能选项卡
-        admin_tab.setEnabled(is_admin())
-
-        # 检查是否具有管理员权限，并在日志文本框中输出相应信息
-        if not is_admin():
-            self.log_text.append('<span style="color: orange;">未检测到管理员权限，部分功能将不可用。</span>')
-            print("未检测到管理员权限，部分功能将不可用。")
-            self.log_text.append("Windows PowerShell\n版权所有 (C) Microsoft Corporation。保留所有权利。\n\n尝试新的跨平台 PowerShell https://aka.ms/pscore6")
+        # 窗口图标
+        icon_path = "app_icon.ico"
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
         else:
-            self.log_text.append('<span style="color: green;">已检测到管理员权限，所有功能均可使用。</span>')
-            print("已检测到管理员权限，所有功能均可使用。")
-            self.log_text.append("Windows PowerShell\n版权所有 (C) Microsoft Corporation。保留所有权利。\n\n尝试新的跨平台 PowerShell https://aka.ms/pscore6")
+            print(f"图标文件 {icon_path} 不存在，请检查路径。")
 
-        # 创建系统信息选项卡
-        system_info_tab = QWidget()
-        system_info_layout = QVBoxLayout(system_info_tab)
+        self.setWindowTitle(APP_NAME)
+        self.resize(800, 450)
 
-        # CPU 信息
-        self.cpu_label = QLabel(f"CPU 使用率: {psutil.cpu_percent()}%")
-        system_info_layout.addWidget(self.cpu_label)
+        # 全局字体
+        font = self.font()
+        font.setPointSize(10)
+        self.setFont(font)
 
-        # 内存信息
-        memory = psutil.virtual_memory()
-        self.memory_label = QLabel(f"内存使用率: {memory.percent}%")
-        system_info_layout.addWidget(self.memory_label)
+        # 中央控件
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
+        main_layout = QVBoxLayout(main_widget)
 
-        # 磁盘信息
-        disk = psutil.disk_usage('/')
-        self.disk_label = QLabel(f"磁盘使用率: {disk.percent}%")
-        system_info_layout.addWidget(self.disk_label)
+        # 日志窗口
+        self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setAcceptRichText(True)
+        log_font = self.log_text.font()
+        log_font.setFamily("Microsoft YaHei")
+        log_font.setPointSize(10)
+        self.log_text.setFont(log_font)
 
-        # 网络信息
-        net_io = psutil.net_io_counters()
-        self.net_label = QLabel(f"网络上传: {net_io.bytes_sent} 字节, 下载: {net_io.bytes_recv} 字节")
-        system_info_layout.addWidget(self.net_label)
+        # 选项卡容器
+        self.tab_widget = QTabWidget()
 
-        self.tab_widget.addTab(system_info_tab, "系统信息")
+        # 上下分割
+        splitter = QSplitter(Qt.Vertical)
+        splitter.addWidget(self.log_text)
+        splitter.addWidget(self.tab_widget)
+        splitter.setSizes([200, 400])
+        main_layout.addWidget(splitter)
 
-        # 创建定时器，每 2 秒刷新一次系统信息
+        # 构建各个选项卡
+        self._build_normal_tab()
+        self._build_admin_tab()
+        self._build_system_info_tab()
+
+        # 日志欢迎信息
+        self._print_welcome()
+
+        # 定时刷新系统信息
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_system_info)
         self.timer.start(2000)
 
+    # ------------------------------------------------------------------
+    # 选项卡构建
+    # ------------------------------------------------------------------
+    def _build_group_tabs(self, groups, sub_tab_parent):
+        """根据分组字典，为每个分组创建一个带按钮网格的子选项卡"""
+        for group_name, group_buttons in groups.items():
+            sub_tab = QWidget()
+            sub_layout = QVBoxLayout(sub_tab)
+
+            grid_layout = QGridLayout()
+            columns = 3
+            for index, (button_text, command) in enumerate(group_buttons):
+                row, col = divmod(index, columns)
+                self.add_button(grid_layout, button_text, command, self.log_text, row, col)
+
+            sub_layout.addLayout(grid_layout)
+            self.add_custom_command(sub_layout, "手动执行命令", self.log_text)
+
+            sub_tab_parent.addTab(sub_tab, group_name)
+
+    def _build_normal_tab(self):
+        normal_tab = QWidget()
+        normal_layout = QVBoxLayout(normal_tab)
+        normal_sub_tab = QTabWidget()
+
+        self._build_group_tabs(NORMAL_FUNCTION_GROUPS, normal_sub_tab)
+
+        normal_layout.addWidget(normal_sub_tab)
+        self.tab_widget.addTab(normal_tab, "普通功能")
+
+    def _build_admin_tab(self):
+        admin_tab = QWidget()
+        admin_layout = QVBoxLayout(admin_tab)
+        admin_sub_tab = QTabWidget()
+
+        self._build_group_tabs(ADMIN_FUNCTION_GROUPS, admin_sub_tab)
+
+        admin_layout.addWidget(admin_sub_tab)
+        self.tab_widget.addTab(admin_tab, "管理员功能")
+
+        # 权限控制
+        admin_tab.setEnabled(is_admin())
+        self.admin_tab = admin_tab
+
+    def _build_system_info_tab(self):
+        system_info_tab = QWidget()
+        system_info_layout = QVBoxLayout(system_info_tab)
+
+        self.cpu_label = QLabel()
+        self.memory_label = QLabel()
+        self.disk_label = QLabel()
+        self.net_label = QLabel()
+
+        for lbl in (self.cpu_label, self.memory_label, self.disk_label, self.net_label):
+            system_info_layout.addWidget(lbl)
+
+        # 立刻填充一次数据
+        self.update_system_info()
+
+        self.tab_widget.addTab(system_info_tab, "系统信息")
+
+    # ------------------------------------------------------------------
+    # 欢迎信息
+    # ------------------------------------------------------------------
+    def _print_welcome(self):
+        if not is_admin():
+            self.log_text.append('<span style="color: orange;">未检测到管理员权限，部分功能将不可用。</span>')
+            print("未检测到管理员权限，部分功能将不可用。")
+        else:
+            self.log_text.append('<span style="color: green;">已检测到管理员权限，所有功能均可使用。</span>')
+            print("已检测到管理员权限，所有功能均可使用。")
+
+        self.log_text.append(
+            "Windows PowerShell\n"
+            "版权所有 (C) Microsoft Corporation。保留所有权利。\n\n"
+            "尝试新的跨平台 PowerShell https://aka.ms/pscore6"
+        )
+
+    # ------------------------------------------------------------------
+    # 系统信息刷新
+    # ------------------------------------------------------------------
     def update_system_info(self):
-        # 更新 CPU 信息
         cpu_percent = psutil.cpu_percent()
         self.cpu_label.setText(f"CPU 使用率: {cpu_percent}%")
 
-        # 更新内存信息
         memory = psutil.virtual_memory()
         self.memory_label.setText(f"内存使用率: {memory.percent}%")
 
-        # 更新磁盘信息
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage(os.path.abspath(os.sep))
         self.disk_label.setText(f"磁盘使用率: {disk.percent}%")
 
-        # 更新网络信息
         net_io = psutil.net_io_counters()
-        self.net_label.setText(f"网络上传: {net_io.bytes_sent} 字节, 下载: {net_io.bytes_recv} 字节")
+        self.net_label.setText(
+            f"网络上传: {net_io.bytes_sent} 字节, 下载: {net_io.bytes_recv} 字节"
+        )
 
+    # ------------------------------------------------------------------
+    # UI 组件封装
+    # ------------------------------------------------------------------
     def add_button(self, outer_layout, button_text, command, log_widget, row, col):
         button = QPushButton()
-        # 优化按钮样式，移除不支持的属性
-        button.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
-                color: white;
-                padding: 12px 24px;
-                border: none;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 500;
-                min-width: 150px;
-            }
-            QPushButton:hover {
-                background-color: #1976D2;
-            }
-            QPushButton:pressed {
-                background-color: #1565C0;
-            }
-        """)
+        button.setStyleSheet(BTN_STYLE)
         button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         button.setMinimumSize(200, 48)
 
-        # 使用 QLabel 实现文字换行
         label = QLabel(button_text)
         label.setWordWrap(True)
         label.setAlignment(Qt.AlignCenter)
 
-        # 按钮内部的布局
         button_layout = QVBoxLayout(button)
         button_layout.addWidget(label)
         button_layout.setContentsMargins(0, 0, 0, 0)
 
         button.clicked.connect(lambda: self.execute_command(command, log_widget))
-        # 使用外部传入的布局添加按钮
         outer_layout.addWidget(button, row, col)
 
-    def add_custom_command(self, layout, label_text, log_widget, row, col):
+    def add_custom_command(self, layout, label_text, log_widget, row=0, col=0):
+        label = QLabel(label_text)
+        label.setStyleSheet(LABEL_STYLE)
+
+        command_input = QLineEdit()
+        command_input.setStyleSheet(INPUT_STYLE)
+
+        button = QPushButton("执行命令")
+        button.setStyleSheet(CUSTOM_BTN_STYLE)
+        button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        button.setMinimumSize(200, 48)
+        button.clicked.connect(
+            lambda: self.execute_custom_command(command_input.text(), log_widget)
+        )
+
         if isinstance(layout, QGridLayout):
-            label = QLabel(label_text)
-            # 增大标签字体大小
-            label.setStyleSheet("""
-                QLabel {
-                    font-size: 16px;
-                    font-weight: 500;
-                    margin-bottom: 8px;
-                }
-            """)
-            layout.addWidget(label, row, col, 1, 3)  # 跨 3 列
-            row += 1
-            command_input = QLineEdit()
-            # 优化输入框样式
-            command_input.setStyleSheet("""
-                QLineEdit {
-                    background-color: white;
-                    border: 1px solid #dee2e6;
-                    border-radius: 4px;
-                    padding: 8px;
-                    font-size: 14px;
-                }
-                QLineEdit:focus {
-                    border-color: #2196F3;
-                }
-            """)
-            layout.addWidget(command_input, row, col, 1, 3)  # 跨 3 列
-            row += 1
-            button = QPushButton("执行命令")
-            # 设置按钮样式表，修改字体大小为 14px 避免文字溢出，移除不支持的属性
-            button.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
-                    color: white;
-                    padding: 12px 24px;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 14px;
-                    font-weight: 500;
-                }
-                QPushButton:hover {
-                    background-color: #45a049;
-                }
-                QPushButton:pressed {
-                    background-color: #3e8e41;
-                }
-            """)
-            button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            button.setMinimumSize(200, 48)
-            button.clicked.connect(lambda: self.execute_custom_command(command_input.text(), log_widget))
-            layout.addWidget(button, row, col, 1, 3, alignment=Qt.AlignCenter)  # 跨 3 列并居中
+            layout.addWidget(label, row, col, 1, 3)
+            layout.addWidget(command_input, row + 1, col, 1, 3)
+            layout.addWidget(button, row + 2, col, 1, 3, alignment=Qt.AlignCenter)
         else:
-            label = QLabel(label_text)
-            label.setStyleSheet("""
-                QLabel {
-                    font-size: 16px;
-                    font-weight: 500;
-                    margin-bottom: 8px;
-                }
-            """)
             layout.addWidget(label)
-            command_input = QLineEdit()
-            command_input.setStyleSheet("""
-                QLineEdit {
-                    background-color: white;
-                    border: 1px solid #dee2e6;
-                    border-radius: 4px;
-                    padding: 8px;
-                    font-size: 14px;
-                }
-                QLineEdit:focus {
-                    border-color: #2196F3;
-                }
-            """)
             layout.addWidget(command_input)
-            button = QPushButton("执行命令")
-            button.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
-                    color: white;
-                    padding: 12px 24px;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 14px;
-                    font-weight: 500;
-                }
-                QPushButton:hover {
-                    background-color: #45a049;
-                }
-                QPushButton:pressed {
-                    background-color: #3e8e41;
-                }
-            """)
-            button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            button.setMinimumSize(200, 48)
-            button.clicked.connect(lambda: self.execute_custom_command(command_input.text(), log_widget))
             layout.addWidget(button, alignment=Qt.AlignCenter)
 
+    # ------------------------------------------------------------------
+    # 命令执行入口
+    # ------------------------------------------------------------------
     def execute_command(self, command, log_widget):
         if confirm_action(self, f"你确定要执行命令: “{command}” 吗？"):
             run_command(command, log_widget)
 
     def execute_custom_command(self, command, log_widget):
+        if not command.strip():
+            QMessageBox.information(self, "提示", "请输入要执行的命令。")
+            return
         if confirm_action(self, f"你确定要执行命令: “{command}” 吗？"):
             run_command(command, log_widget)
 
 
-# 检测系统主题
-def get_system_theme():
-    try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
-        value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
-        winreg.CloseKey(key)
-        return "light" if value == 1 else "dark"
-    except Exception:
-        return "light"
-
-# -------------------------------------------------
-# 启动入口（放到文件最底部，顶格写）
+# ---------------------------------------------------------------------------
+# 启动入口
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = SystemOptimizer()
     window.show()
-    print("系统优化工具已启动")
+
+    print(f"{APP_NAME} 已启动")
     print("EndlessPixel by system_mini")
     print("版本信息：")
-    print("b1.0")
+    print(APP_VERSION)
     print("感谢您的使用！")
+
     sys.exit(app.exec_())
