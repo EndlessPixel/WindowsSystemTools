@@ -126,62 +126,149 @@ class SystemOptimizer(QMainWindow):
         main_layout.addWidget(splitter)
 
         # 定义普通功能分组
-        normal_function_groups = {
-            "系统工具": [
-                ("打开任务管理器", "start taskmgr"),
-                ("打开事件查看器", "start eventvwr"),
-                ("打开注册表编辑器", "start regedit"),
-                ("打开系统信息", "start msinfo32"),
-                ("打开控制面板", "start control"),
-                ("打开任务计划程序", "start taskschd.msc"),
-                ("打开性能监视器", "start perfmon.msc"),
-                ("打开计算机管理", "start compmgmt.msc"),
-                ("打开本地用户和组", "start lusrmgr.msc"),
-                ("打开组策略编辑器", "start gpedit.msc"),
-                ("打开磁盘清理", "start cleanmgr")
-            ],
-            "资源管理": [
-                ("打开文件资源管理器", "start explorer"),
-                ("打开磁盘管理", "start diskmgmt.msc"),
-                ("打开设备管理器", "start devmgmt.msc"),
-                ("打开服务管理器", "start services.msc"),
-                ("打开打印管理", "start printmanagement.msc"),
-                ("打开存储感知", "start ms-settings:storagesense"),
-                ("打开应用和功能", "start ms-settings:appsfeatures"),
-                ("打开任务栏设置", "start ms-settings:taskbar")
-            ],
-            "网络与安全": [
-                ("打开网络连接", "start ncpa.cpl"),
-                ("打开防火墙设置", "start firewall.cpl"),
-                ("打开用户账户控制设置", "start uac.cpl"),
-                ("打开 Windows 安全中心", "start ms-settings:windowsdefender"),
-                ("打开网络状态", "start ms-settings:network-status"),
-                ("打开 Wi-Fi 设置", "start ms-settings:network-wifi"),
-                ("打开 VPN 设置", "start ms-settings:network-vpn"),
-                ("打开蓝牙设置", "start ms-settings:bluetooth")
-            ],
-            "命令交互": [
-                ("打开命令提示符", "start cmd"),
-                ("打开 Windows PowerShell", "start powershell"),
-                ("打开 Windows PowerShell(管理员)", "powershell Start-Process powershell -Verb RunAs"),
-                ("打开命令提示符(管理员)", "powershell Start-Process cmd -Verb RunAs"),
-                ("打开 Windows Terminal", "wt")
-            ],
-            "多媒体工具": [
-                ("打开计算器", "start calc"),
-                ("打开画图", "start mspaint"),
-                ("打开记事本", "start notepad"),
-                ("打开截图工具", "start snippingtool"),
-                ("打开屏幕录制", "start xboxapp:record")
-            ],
-            "系统设置": [
-                ("打开显示设置", "start ms-settings:display"),
-                ("打开声音设置", "start ms-settings:sound"),
-                ("打开电源选项", "start control powercfg.cpl"),
-                ("打开日期和时间设置", "start ms-settings:dateandtime"),
-                ("打开账户信息", "start ms-settings:yourinfo")
-            ]
-        }
+normal_function_groups = {
+    "系统工具": [
+        ("打开任务管理器", "start taskmgr"),
+        ("打开事件查看器", "start eventvwr"),
+        ("打开注册表编辑器", "start regedit"),
+        ("打开系统信息", "start msinfo32"),
+        ("打开控制面板", "start control"),
+        ("打开任务计划程序", "start taskschd.msc"),
+        ("打开性能监视器", "start perfmon.msc"),
+        ("打开计算机管理", "start compmgmt.msc"),
+        ("打开本地用户和组", "start lusrmgr.msc"),
+        ("打开组策略编辑器", "start gpedit.msc"),
+        ("打开磁盘清理", "start cleanmgr"),
+        ("打开资源监视器", "start resmon"),
+        ("打开系统配置(MSConfig)", "start msconfig"),
+        ("打开DirectX诊断工具", "start dxdiag"),
+        ("打开组件服务", "start dcomcnfg"),
+        ("打开ODBC数据源(64位)", "start odbcad32"),
+        ("打开Windows内存诊断", "start mdsched"),
+        ("打开打印管理", "start printmanagement.msc"),
+        ("打开证书管理", "start certmgr.msc"),
+        ("打开本地安全策略", "start secpol.msc"),
+    ],
+
+    "资源管理": [
+        ("打开文件资源管理器", "start explorer"),
+        ("打开磁盘管理", "start diskmgmt.msc"),
+        ("打开设备管理器", "start devmgmt.msc"),
+        ("打开服务管理器", "start services.msc"),
+        ("打开存储感知", "start ms-settings:storagesense"),
+        ("打开应用和功能", "start ms-settings:appsfeatures"),
+        ("打开任务栏设置", "start ms-settings:taskbar"),
+        ("打开磁盘碎片整理", "start dfrgui"),
+        ("打开共享文件夹管理", "start fsmgmt.msc"),
+        ("打开可靠性和历史记录", "start control /name Microsoft.ReliabilityMonitor"),
+        ("打开系统属性", "start sysdm.cpl"),
+        ("打开环境变量设置", "powershell rundll32 sysdm.cpl,EditEnvironmentVariables"),
+    ],
+
+    "网络与安全": [
+        ("打开网络连接", "start ncpa.cpl"),
+        ("打开防火墙设置", "start firewall.cpl"),
+        ("打开用户账户控制设置", "start ms-settings:uac"),
+        ("打开 Windows 安全中心", "start ms-settings:windowsdefender"),
+        ("打开网络状态", "start ms-settings:network-status"),
+        ("打开 Wi-Fi 设置", "start ms-settings:network-wifi"),
+        ("打开 VPN 设置", "start ms-settings:network-vpn"),
+        ("打开蓝牙设置", "start ms-settings:bluetooth"),
+        ("打开代理设置", "start ms-settings:network-proxy"),
+        ("打开数据使用量", "start ms-settings:datausage"),
+        ("打开网络重置", "start ms-settings:network-reset"),
+        ("打开Windows Defender防火墙高级设置", "start wf.msc"),
+        ("打开远程桌面设置", "start ms-settings:remotedesktop"),
+        ("打开BitLocker设置", "start control /name Microsoft.BitLockerDriveEncryption"),
+        ("刷新DNS缓存", "powershell Clear-DnsClientCache"),
+        ("查看IP配置", "powershell ipconfig /all"),
+        ("测试网络连通性(谷歌)", "powershell ping 8.8.8.8"),
+    ],
+
+    "命令交互": [
+        ("打开命令提示符", "start cmd"),
+        ("打开 Windows PowerShell", "start powershell"),
+        ("打开 Windows PowerShell(管理员)", "powershell Start-Process powershell -Verb RunAs"),
+        ("打开命令提示符(管理员)", "powershell Start-Process cmd -Verb RunAs"),
+        ("打开 Windows Terminal", "wt"),
+        ("打开 Windows Terminal(管理员)", "powershell Start-Process wt -Verb RunAs"),
+        ("打开Python交互环境", "start python"),
+        ("打开Node.js交互环境", "start node"),
+    ],
+
+    "多媒体工具": [
+        ("打开计算器", "start calc"),
+        ("打开画图", "start mspaint"),
+        ("打开记事本", "start notepad"),
+        ("打开截图工具", "start snippingtool"),
+        ("打开屏幕录制", "start xboxapp:record"),
+        ("打开相机", "start microsoft.windows.camera:"),
+        ("打开照片应用", "start ms-photos:"),
+        ("打开媒体播放器", "start mplay32"),
+        ("打开音量混合器", "start sndvol"),
+        ("打开声音控制面板", "start mmsys.cpl"),
+        ("打开显示颜色校准", "start dccw"),
+    ],
+
+    "系统设置": [
+        ("打开显示设置", "start ms-settings:display"),
+        ("打开声音设置", "start ms-settings:sound"),
+        ("打开电源选项", "start control powercfg.cpl"),
+        ("打开日期和时间设置", "start ms-settings:dateandtime"),
+        ("打开账户信息", "start ms-settings:yourinfo"),
+        ("打开个性化设置", "start ms-settings:personalization"),
+        ("打开主题设置", "start ms-settings:themes"),
+        ("打开锁屏设置", "start ms-settings:lockscreen"),
+        ("打开通知设置", "start ms-settings:notifications"),
+        ("打开存储设置", "start ms-settings:storagesense"),
+        ("打开更新与安全", "start ms-settings:windowsupdate"),
+        ("打开备份设置", "start ms-settings:backup"),
+        ("打开疑难解答", "start ms-settings:troubleshoot"),
+        ("打开激活设置", "start ms-settings:activation"),
+        ("打开远程桌面设置", "start ms-settings:remotedesktop"),
+        ("打开默认应用", "start ms-settings:defaultapps"),
+        ("打开应用执行别名", "start ms-settings:appsforwebsites"),
+        ("打开开发者选项", "start ms-settings:developers"),
+    ],
+
+    "办公与效率": [
+        ("打开写字板", "start write"),
+        ("打开字符映射表", "start charmap"),
+        ("打开步骤记录器", "start psr"),
+        ("打开便笺", "start stikynot"),
+        ("打开放大镜", "start magnify"),
+        ("打开讲述人", "start narrator"),
+        ("打开屏幕键盘", "start osk"),
+        ("打开高对比度设置", "start ms-settings:easeofaccess-highcontrast"),
+        ("打开语音识别", "start ms-settings:speech"),
+        ("打开任务视图", "powershell explorer.exe shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}"),
+    ],
+
+    "运维与高级功能": [
+        ("打开组策略结果", "start rsop.msc"),
+        ("打开Windows更新日志", "powershell Get-WindowsUpdateLog"),
+        ("生成系统健康报告", "powershell Get-ComputerInfo"),
+        ("导出已安装程序列表", "powershell Get-WmiObject -Class Win32_Product | Out-File C:\\installed_apps.txt"),
+        ("重启Windows资源管理器", "powershell Stop-Process -Name explorer -Force; Start-Process explorer"),
+        ("关机", "powershell Stop-Computer"),
+        ("重启", "powershell Restart-Computer"),
+        ("注销当前用户", "powershell logoff"),
+        ("锁定计算机", "powershell rundll32 user32.dll,LockWorkStation"),
+        ("休眠", "powershell rundll32 powrprof.dll,SetSuspendState Hibernate"),
+        ("睡眠", "powershell rundll32 powrprof.dll,SetSuspendState Standby"),
+    ],
+
+    "WSL / 开发工具": [
+        ("打开WSL终端", "wsl"),
+        ("打开WSL(默认发行版)", "wsl ~"),
+        ("列出WSL发行版", "powershell wsl --list --verbose"),
+        ("打开Docker Desktop", "start \"Docker Desktop\" \"C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe\""),
+        ("打开Git Bash", "start \"\" \"C:\\Program Files\\Git\\git-bash.exe\""),
+        ("打开VS Code", "start code"),
+        ("打开Notepad++", "start notepad++"),
+    ]
+}
+
 
         # 创建普通功能选项卡
         normal_tab = QWidget()
