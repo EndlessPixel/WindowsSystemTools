@@ -1,3 +1,4 @@
-PyQt5>=5.15.0
+fastapi>=0.110
+uvicorn[standard]>=0.27
+fastui>=0.9
 psutil>=5.9.0
-pywin32>=306

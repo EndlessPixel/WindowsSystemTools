@@ -1,0 +1,1036 @@
+{
+  "version": 1,
+  "normal": [
+    {
+      "name": "系统工具",
+      "items": [
+        {
+          "name": "打开任务管理器",
+          "command": "start taskmgr"
+        },
+        {
+          "name": "打开事件查看器",
+          "command": "start eventvwr"
+        },
+        {
+          "name": "打开注册表编辑器",
+          "command": "start regedit"
+        },
+        {
+          "name": "打开系统信息",
+          "command": "start msinfo32"
+        },
+        {
+          "name": "打开控制面板",
+          "command": "start control"
+        },
+        {
+          "name": "打开任务计划程序",
+          "command": "start taskschd.msc"
+        },
+        {
+          "name": "打开性能监视器",
+          "command": "start perfmon.msc"
+        },
+        {
+          "name": "打开计算机管理",
+          "command": "start compmgmt.msc"
+        },
+        {
+          "name": "打开本地用户和组",
+          "command": "start lusrmgr.msc"
+        },
+        {
+          "name": "打开组策略编辑器",
+          "command": "start gpedit.msc"
+        },
+        {
+          "name": "打开磁盘清理",
+          "command": "start cleanmgr"
+        },
+        {
+          "name": "打开资源监视器",
+          "command": "start resmon"
+        },
+        {
+          "name": "打开系统配置(MSConfig)",
+          "command": "start msconfig"
+        },
+        {
+          "name": "打开DirectX诊断工具",
+          "command": "start dxdiag"
+        },
+        {
+          "name": "打开组件服务",
+          "command": "start dcomcnfg"
+        },
+        {
+          "name": "打开ODBC数据源(64位)",
+          "command": "start odbcad32"
+        },
+        {
+          "name": "打开Windows内存诊断",
+          "command": "start mdsched"
+        },
+        {
+          "name": "打开打印管理",
+          "command": "start printmanagement.msc"
+        },
+        {
+          "name": "打开证书管理",
+          "command": "start certmgr.msc"
+        },
+        {
+          "name": "打开本地安全策略",
+          "command": "start secpol.msc"
+        }
+      ]
+    },
+    {
+      "name": "资源管理",
+      "items": [
+        {
+          "name": "打开文件资源管理器",
+          "command": "start explorer"
+        },
+        {
+          "name": "打开磁盘管理",
+          "command": "start diskmgmt.msc"
+        },
+        {
+          "name": "打开设备管理器",
+          "command": "start devmgmt.msc"
+        },
+        {
+          "name": "打开服务管理器",
+          "command": "start services.msc"
+        },
+        {
+          "name": "打开存储感知",
+          "command": "start ms-settings:storagesense"
+        },
+        {
+          "name": "打开应用和功能",
+          "command": "start ms-settings:appsfeatures"
+        },
+        {
+          "name": "打开任务栏设置",
+          "command": "start ms-settings:taskbar"
+        },
+        {
+          "name": "打开磁盘碎片整理",
+          "command": "start dfrgui"
+        },
+        {
+          "name": "打开共享文件夹管理",
+          "command": "start fsmgmt.msc"
+        },
+        {
+          "name": "打开可靠性和历史记录",
+          "command": "start control /name Microsoft.ReliabilityMonitor"
+        },
+        {
+          "name": "打开系统属性",
+          "command": "start sysdm.cpl"
+        },
+        {
+          "name": "打开环境变量设置",
+          "command": "powershell rundll32 sysdm.cpl,EditEnvironmentVariables"
+        }
+      ]
+    },
+    {
+      "name": "网络与安全",
+      "items": [
+        {
+          "name": "打开网络连接",
+          "command": "start ncpa.cpl"
+        },
+        {
+          "name": "打开防火墙设置",
+          "command": "start firewall.cpl"
+        },
+        {
+          "name": "打开用户账户控制设置",
+          "command": "start ms-settings:uac"
+        },
+        {
+          "name": "打开 Windows 安全中心",
+          "command": "start ms-settings:windowsdefender"
+        },
+        {
+          "name": "打开网络状态",
+          "command": "start ms-settings:network-status"
+        },
+        {
+          "name": "打开 Wi-Fi 设置",
+          "command": "start ms-settings:network-wifi"
+        },
+        {
+          "name": "打开 VPN 设置",
+          "command": "start ms-settings:network-vpn"
+        },
+        {
+          "name": "打开蓝牙设置",
+          "command": "start ms-settings:bluetooth"
+        },
+        {
+          "name": "打开代理设置",
+          "command": "start ms-settings:network-proxy"
+        },
+        {
+          "name": "打开数据使用量",
+          "command": "start ms-settings:datausage"
+        },
+        {
+          "name": "打开网络重置",
+          "command": "start ms-settings:network-reset"
+        },
+        {
+          "name": "打开Windows Defender防火墙高级设置",
+          "command": "start wf.msc"
+        },
+        {
+          "name": "打开远程桌面设置",
+          "command": "start ms-settings:remotedesktop"
+        },
+        {
+          "name": "打开BitLocker设置",
+          "command": "start control /name Microsoft.BitLockerDriveEncryption"
+        },
+        {
+          "name": "刷新DNS缓存",
+          "command": "powershell Clear-DnsClientCache"
+        },
+        {
+          "name": "查看IP配置",
+          "command": "powershell ipconfig /all"
+        },
+        {
+          "name": "测试网络连通性(谷歌)",
+          "command": "powershell ping 8.8.8.8"
+        }
+      ]
+    },
+    {
+      "name": "命令交互",
+      "items": [
+        {
+          "name": "打开命令提示符",
+          "command": "start cmd"
+        },
+        {
+          "name": "打开 Windows PowerShell",
+          "command": "start powershell"
+        },
+        {
+          "name": "打开 Windows PowerShell(管理员)",
+          "command": "powershell Start-Process powershell -Verb RunAs"
+        },
+        {
+          "name": "打开命令提示符(管理员)",
+          "command": "powershell Start-Process cmd -Verb RunAs"
+        },
+        {
+          "name": "打开 Windows Terminal",
+          "command": "wt"
+        },
+        {
+          "name": "打开 Windows Terminal(管理员)",
+          "command": "powershell Start-Process wt -Verb RunAs"
+        },
+        {
+          "name": "打开Python交互环境",
+          "command": "start python"
+        },
+        {
+          "name": "打开Node.js交互环境",
+          "command": "start node"
+        }
+      ]
+    },
+    {
+      "name": "多媒体工具",
+      "items": [
+        {
+          "name": "打开计算器",
+          "command": "start calc"
+        },
+        {
+          "name": "打开画图",
+          "command": "start mspaint"
+        },
+        {
+          "name": "打开记事本",
+          "command": "start notepad"
+        },
+        {
+          "name": "打开截图工具",
+          "command": "start snippingtool"
+        },
+        {
+          "name": "打开屏幕录制",
+          "command": "start xboxapp:record"
+        },
+        {
+          "name": "打开相机",
+          "command": "start microsoft.windows.camera:"
+        },
+        {
+          "name": "打开照片应用",
+          "command": "start ms-photos:"
+        },
+        {
+          "name": "打开媒体播放器",
+          "command": "start mplay32"
+        },
+        {
+          "name": "打开音量混合器",
+          "command": "start sndvol"
+        },
+        {
+          "name": "打开声音控制面板",
+          "command": "start mmsys.cpl"
+        },
+        {
+          "name": "打开显示颜色校准",
+          "command": "start dccw"
+        }
+      ]
+    },
+    {
+      "name": "系统设置",
+      "items": [
+        {
+          "name": "打开显示设置",
+          "command": "start ms-settings:display"
+        },
+        {
+          "name": "打开声音设置",
+          "command": "start ms-settings:sound"
+        },
+        {
+          "name": "打开电源选项",
+          "command": "start control powercfg.cpl"
+        },
+        {
+          "name": "打开日期和时间设置",
+          "command": "start ms-settings:dateandtime"
+        },
+        {
+          "name": "打开账户信息",
+          "command": "start ms-settings:yourinfo"
+        },
+        {
+          "name": "打开个性化设置",
+          "command": "start ms-settings:personalization"
+        },
+        {
+          "name": "打开主题设置",
+          "command": "start ms-settings:themes"
+        },
+        {
+          "name": "打开锁屏设置",
+          "command": "start ms-settings:lockscreen"
+        },
+        {
+          "name": "打开通知设置",
+          "command": "start ms-settings:notifications"
+        },
+        {
+          "name": "打开存储设置",
+          "command": "start ms-settings:storagesense"
+        },
+        {
+          "name": "打开更新与安全",
+          "command": "start ms-settings:windowsupdate"
+        },
+        {
+          "name": "打开备份设置",
+          "command": "start ms-settings:backup"
+        },
+        {
+          "name": "打开疑难解答",
+          "command": "start ms-settings:troubleshoot"
+        },
+        {
+          "name": "打开激活设置",
+          "command": "start ms-settings:activation"
+        },
+        {
+          "name": "打开远程桌面设置",
+          "command": "start ms-settings:remotedesktop"
+        },
+        {
+          "name": "打开默认应用",
+          "command": "start ms-settings:defaultapps"
+        },
+        {
+          "name": "打开应用执行别名",
+          "command": "start ms-settings:appsforwebsites"
+        },
+        {
+          "name": "打开开发者选项",
+          "command": "start ms-settings:developers"
+        }
+      ]
+    },
+    {
+      "name": "办公与效率",
+      "items": [
+        {
+          "name": "打开写字板",
+          "command": "start write"
+        },
+        {
+          "name": "打开字符映射表",
+          "command": "start charmap"
+        },
+        {
+          "name": "打开步骤记录器",
+          "command": "start psr"
+        },
+        {
+          "name": "打开便笺",
+          "command": "start stikynot"
+        },
+        {
+          "name": "打开放大镜",
+          "command": "start magnify"
+        },
+        {
+          "name": "打开讲述人",
+          "command": "start narrator"
+        },
+        {
+          "name": "打开屏幕键盘",
+          "command": "start osk"
+        },
+        {
+          "name": "打开高对比度设置",
+          "command": "start ms-settings:easeofaccess-highcontrast"
+        },
+        {
+          "name": "打开语音识别",
+          "command": "start ms-settings:speech"
+        },
+        {
+          "name": "打开任务视图",
+          "command": "powershell explorer.exe shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}"
+        }
+      ]
+    },
+    {
+      "name": "运维与高级功能",
+      "items": [
+        {
+          "name": "打开组策略结果",
+          "command": "start rsop.msc"
+        },
+        {
+          "name": "打开Windows更新日志",
+          "command": "powershell Get-WindowsUpdateLog"
+        },
+        {
+          "name": "生成系统健康报告",
+          "command": "powershell Get-ComputerInfo"
+        },
+        {
+          "name": "导出已安装程序列表",
+          "command": "powershell Get-WmiObject -Class Win32_Product | Out-File C:\\installed_apps.txt"
+        },
+        {
+          "name": "重启Windows资源管理器",
+          "command": "powershell Stop-Process -Name explorer -Force; Start-Process explorer"
+        },
+        {
+          "name": "关机",
+          "command": "powershell Stop-Computer"
+        },
+        {
+          "name": "重启",
+          "command": "powershell Restart-Computer"
+        },
+        {
+          "name": "注销当前用户",
+          "command": "powershell logoff"
+        },
+        {
+          "name": "锁定计算机",
+          "command": "powershell rundll32 user32.dll,LockWorkStation"
+        },
+        {
+          "name": "休眠",
+          "command": "powershell rundll32 powrprof.dll,SetSuspendState Hibernate"
+        },
+        {
+          "name": "睡眠",
+          "command": "powershell rundll32 powrprof.dll,SetSuspendState Standby"
+        }
+      ]
+    },
+    {
+      "name": "WSL / 开发工具",
+      "items": [
+        {
+          "name": "打开WSL终端",
+          "command": "wsl"
+        },
+        {
+          "name": "打开WSL(默认发行版)",
+          "command": "wsl ~"
+        },
+        {
+          "name": "列出WSL发行版",
+          "command": "powershell wsl --list --verbose"
+        },
+        {
+          "name": "打开Docker Desktop",
+          "command": "start \"Docker Desktop\" \"C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe\""
+        },
+        {
+          "name": "打开Git Bash",
+          "command": "start \"\" \"C:\\Program Files\\Git\\git-bash.exe\""
+        },
+        {
+          "name": "打开VS Code",
+          "command": "start code"
+        },
+        {
+          "name": "打开Notepad++",
+          "command": "start notepad++"
+        }
+      ]
+    }
+  ],
+  "admin": [
+    {
+      "name": "远程与连接",
+      "items": [
+        {
+          "name": "启用远程桌面",
+          "command": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\" /v fDenyTSConnections /t REG_DWORD /d 0 /f"
+        },
+        {
+          "name": "关闭远程桌面",
+          "command": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\" /v fDenyTSConnections /t REG_DWORD /d 1 /f"
+        },
+        {
+          "name": "启用无密码连接",
+          "command": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\" /v LimitBlankPasswordUse /t REG_DWORD /d 0 /f"
+        },
+        {
+          "name": "关闭无密码连接",
+          "command": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\" /v LimitBlankPasswordUse /t REG_DWORD /d 1 /f"
+        },
+        {
+          "name": "启用远程协助",
+          "command": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp\" /v UserAuthentication /t REG_DWORD /d 1 /f && netsh advfirewall firewall set rule group=\"Remote Assistance\" new enable=yes"
+        },
+        {
+          "name": "关闭远程协助",
+          "command": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp\" /v UserAuthentication /t REG_DWORD /d 0 /f && netsh advfirewall firewall set rule group=\"Remote Assistance\" new enable=no"
+        },
+        {
+          "name": "设置RDP端口为3389",
+          "command": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp\" /v PortNumber /t REG_DWORD /d 3389 /f"
+        },
+        {
+          "name": "限制RDP仅允许NLA",
+          "command": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp\" /v UserAuthentication /t REG_DWORD /d 1 /f"
+        }
+      ]
+    },
+    {
+      "name": "安全防护",
+      "items": [
+        {
+          "name": "启用 Defender",
+          "command": "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $false\""
+        },
+        {
+          "name": "禁用 Defender",
+          "command": "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $true\""
+        },
+        {
+          "name": "用于内置管理员帐户的管理员批准模式",
+          "command": "reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\" /v FilterAdministratorToken /t REG_DWORD /d 1 /f"
+        },
+        {
+          "name": "关闭 Smartscreen 应用筛选器 (旧版)",
+          "command": "reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\" /v SmartScreenEnabled /t REG_SZ /d off /f"
+        },
+        {
+          "name": "关闭 Smartscreen 应用筛选器 (新版)",
+          "command": "reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\" /v SmartScreenEnabled /t REG_SZ /d off /f & reg add \"HKLM\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\PhishingFilter\" /v EnabledV9 /t REG_DWORD /d 0 /f"
+        },
+        {
+          "name": "关闭 UAC",
+          "command": "powershell -Command \"Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System -Name EnableLUA -Value 0\""
+        },
+        {
+          "name": "启用 UAC",
+          "command": "powershell -Command \"Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System -Name EnableLUA -Value 1\""
+        },
+        {
+          "name": "禁用 Windows 遥测数据收集",
+          "command": "reg add \"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\" /v AllowTelemetry /t REG_DWORD /d 0 /f"
+        },
+        {
+          "name": "启用 Windows 遥测数据收集",
+          "command": "reg add \"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\" /v AllowTelemetry /t REG_DWORD /d 3 /f"
+        },
+        {
+          "name": "禁用SMBv1协议",
+          "command": "powershell -Command \"Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol\""
+        },
+        {
+          "name": "启用SMBv1协议",
+          "command": "powershell -Command \"Enable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol\""
+        },
+        {
+          "name": "禁用PowerShell脚本执行",
+          "command": "powershell -Command \"Set-ExecutionPolicy Restricted -Force\""
+        },
+        {
+          "name": "启用PowerShell脚本执行",
+          "command": "powershell -Command \"Set-ExecutionPolicy RemoteSigned -Force\""
+        }
+      ]
+    },
+    {
+      "name": "系统服务管理",
+      "items": [
+        {
+          "name": "启用 SysMain",
+          "command": "sc config SysMain start= auto && net start SysMain"
+        },
+        {
+          "name": "禁用 SysMain",
+          "command": "net stop SysMain && sc config SysMain start= disabled"
+        },
+        {
+          "name": "启用 Windows 索引",
+          "command": "sc config WSearch start= auto && net start WSearch"
+        },
+        {
+          "name": "禁用 Windows 索引",
+          "command": "net stop WSearch && sc config WSearch start= disabled"
+        },
+        {
+          "name": "禁用家庭组服务",
+          "command": "net stop HomeGroupListener && net stop HomeGroupProvider && sc config HomeGroupListener start= disabled && sc config HomeGroupProvider start= disabled"
+        },
+        {
+          "name": "启用家庭组服务",
+          "command": "sc config HomeGroupListener start= auto && sc config HomeGroupProvider start= auto && net start HomeGroupListener && net start HomeGroupProvider"
+        },
+        {
+          "name": "启用自动更新",
+          "command": "sc config wuauserv start= auto && net start wuauserv"
+        },
+        {
+          "name": "停止自动更新",
+          "command": "net stop wuauserv && sc config wuauserv start= disabled"
+        },
+        {
+          "name": "启用自动时间同步",
+          "command": "sc config w32time start= auto && net start w32time"
+        },
+        {
+          "name": "禁用自动时间同步",
+          "command": "net stop w32time && sc config w32time start= disabled"
+        },
+        {
+          "name": "启用打印后台处理",
+          "command": "sc config Spooler start= auto && net start Spooler"
+        },
+        {
+          "name": "禁用打印后台处理",
+          "command": "net stop Spooler && sc config Spooler start= disabled"
+        }
+      ]
+    },
+    {
+      "name": "系统维护清理",
+      "items": [
+        {
+          "name": "清空回收站",
+          "command": "powershell -NoProfile -Command \"Get-ChildItem -Path C:\\$Recycle.Bin -Force -Recurse | Remove-Item -Recurse -Force\""
+        },
+        {
+          "name": "清理系统临时文件",
+          "command": "powershell -Command \"Get-ChildItem -Path $env:TEMP -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue\""
+        },
+        {
+          "name": "清理 WinTemp",
+          "command": "powershell -Command \"Remove-Item -Path C:\\Windows\\Temp\\* -Recurse -Force -ErrorAction SilentlyContinue\""
+        },
+        {
+          "name": "磁盘碎片整理C：",
+          "command": "defrag C: /U /V"
+        },
+        {
+          "name": "优化磁盘C：",
+          "command": "defrag C: /O"
+        },
+        {
+          "name": "清理 Windows 更新缓存",
+          "command": "powershell -Command \"Stop-Service wuauserv; Remove-Item -Path C:\\Windows\\SoftwareDistribution\\Download\\* -Recurse -Force -ErrorAction SilentlyContinue; Start-Service wuauserv\""
+        },
+        {
+          "name": "禁用 Windows 错误报告",
+          "command": "reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\" /v Disabled /t REG_DWORD /d 1 /f"
+        },
+        {
+          "name": "启用 Windows 错误报告",
+          "command": "reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\" /v Disabled /t REG_DWORD /d 0 /f"
+        },
+        {
+          "name": "禁用系统还原",
+          "command": "powershell Disable-ComputerRestore -Drive C:\\"
+        },
+        {
+          "name": "启用系统还原",
+          "command": "powershell Enable-ComputerRestore -Drive C:\\"
+        },
+        {
+          "name": "清理组件存储(无破坏)",
+          "command": "dism /Online /Cleanup-Image /StartComponentCleanup"
+        },
+        {
+          "name": "扫描系统组件完整性",
+          "command": "dism /Online /Cleanup-Image /ScanHealth"
+        },
+        {
+          "name": "修复系统组件",
+          "command": "dism /Online /Cleanup-Image /RestoreHealth"
+        },
+        {
+          "name": "修复系统文件",
+          "command": "sfc /scannow"
+        }
+      ]
+    },
+    {
+      "name": "系统进程管理",
+      "items": [
+        {
+          "name": "重启资源管理器",
+          "command": "taskkill /im explorer.exe /f && start explorer.exe"
+        },
+        {
+          "name": "杀死资源管理器",
+          "command": "taskkill /im explorer.exe /f"
+        },
+        {
+          "name": "启动资源管理器",
+          "command": "start explorer.exe"
+        },
+        {
+          "name": "杀死命令提示符",
+          "command": "taskkill /im cmd.exe /f"
+        },
+        {
+          "name": "结束无响应任务",
+          "command": "powershell -Command \"Get-Process | Where-Object { $_.Responding -eq $false } | Stop-Process -Force\""
+        }
+      ]
+    },
+    {
+      "name": "系统启动设置",
+      "items": [
+        {
+          "name": "禁用快速启动",
+          "command": "powercfg /h off"
+        },
+        {
+          "name": "启用快速启动",
+          "command": "powercfg /h on"
+        },
+        {
+          "name": "禁用应用自动启动",
+          "command": "reg add \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /f && reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\" /f"
+        },
+        {
+          "name": "启用应用自动启动",
+          "command": "echo 需手动配置注册表项恢复自动启动程序"
+        },
+        {
+          "name": "禁用休眠功能",
+          "command": "powercfg /hibernate off"
+        },
+        {
+          "name": "启用休眠功能",
+          "command": "powercfg /hibernate on"
+        },
+        {
+          "name": "启用传统登录界面",
+          "command": "reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\" /v dontdisplaylastusername /t REG_DWORD /d 0 /f"
+        },
+        {
+          "name": "禁用传统登录界面",
+          "command": "reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\" /v dontdisplaylastusername /t REG_DWORD /d 1 /f"
+        }
+      ]
+    },
+    {
+      "name": "网络管理配置",
+      "items": [
+        {
+          "name": "刷新 DNS",
+          "command": "ipconfig /flushdns"
+        },
+        {
+          "name": "释放 IP",
+          "command": "ipconfig /release"
+        },
+        {
+          "name": "重新获取 IP",
+          "command": "ipconfig /renew"
+        },
+        {
+          "name": "重启 DNS 缓存",
+          "command": "net stop dnscache && net start dnscache"
+        },
+        {
+          "name": "禁用网络发现",
+          "command": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\" /v AutoShareServer /t REG_DWORD /d 0 /f && reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters\" /v DisallowUnencryptedGuestAuth /t REG_DWORD /d 1 /f"
+        },
+        {
+          "name": "启用网络发现",
+          "command": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\" /v AutoShareServer /t REG_DWORD /d 1 /f && reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters\" /v DisallowUnencryptedGuestAuth /t REG_DWORD /d 0 /f"
+        },
+        {
+          "name": "重置 Winsock",
+          "command": "netsh winsock reset"
+        },
+        {
+          "name": "重置 TCP/IP 协议栈",
+          "command": "netsh int ip reset"
+        },
+        {
+          "name": "查看所有网络连接",
+          "command": "netstat -ano"
+        },
+        {
+          "name": "显示ARP缓存表",
+          "command": "arp -a"
+        },
+        {
+          "name": "显示路由表",
+          "command": "route print"
+        }
+      ]
+    },
+    {
+      "name": "Windows 更新设置",
+      "items": [
+        {
+          "name": "禁用自动更新驱动",
+          "command": "reg add \"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching\" /v DontSearchWindowsUpdate /t REG_DWORD /d 1 /f && reg add \"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching\" /v SearchOrderConfig /t REG_DWORD /d 0 /f"
+        },
+        {
+          "name": "启用自动更新驱动",
+          "command": "reg delete \"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching\" /v DontSearchWindowsUpdate /f && reg delete \"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching\" /v SearchOrderConfig /f"
+        },
+        {
+          "name": "暂停Windows更新7天",
+          "command": "powershell -Command \"Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings -Name PauseUpdatesExpiryTime -Value (Get-Date).AddDays(7).ToString()\""
+        },
+        {
+          "name": "恢复Windows更新",
+          "command": "powershell -Command \"Remove-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings -Name PauseUpdatesExpiryTime\""
+        }
+      ]
+    },
+    {
+      "name": "时间与时区管理",
+      "items": [
+        {
+          "name": "同步 Internet 时间",
+          "command": "w32tm /resync"
+        },
+        {
+          "name": "查看当前时区",
+          "command": "tzutil /g"
+        },
+        {
+          "name": "设为北京时区",
+          "command": "tzutil /s \"China Standard Time\""
+        },
+        {
+          "name": "设为香港时区",
+          "command": "tzutil /s \"China Standard Time\""
+        },
+        {
+          "name": "设为UTC时区",
+          "command": "tzutil /s \"UTC\""
+        }
+      ]
+    },
+    {
+      "name": "视觉效果设置",
+      "items": [
+        {
+          "name": "低质量壁纸",
+          "command": "reg add \"HKCU\\Control Panel\\Desktop\" /v JPEGImportQuality /t REG_DWORD /d 96 /f"
+        },
+        {
+          "name": "默认质量壁纸",
+          "command": "reg delete \"HKCU\\Control Panel\\Desktop\" /v JPEGImportQuality /f"
+        },
+        {
+          "name": "高质量壁纸",
+          "command": "reg add \"HKCU\\Control Panel\\Desktop\" /v JPEGImportQuality /t REG_DWORD /d 256 /f"
+        },
+        {
+          "name": "调整为最佳性能",
+          "command": "powershell -Command \"Set-ItemProperty -Path HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects -Name VisualFXSetting -Value 2\""
+        },
+        {
+          "name": "恢复为系统默认视觉效果",
+          "command": "powershell -Command \"Remove-ItemProperty -Path HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects -Name VisualFXSetting\""
+        }
+      ]
+    },
+    {
+      "name": "安全扫描",
+      "items": [
+        {
+          "name": "全盘扫描",
+          "command": "powershell -Command \"Start-MpScan -ScanType FullScan\""
+        },
+        {
+          "name": "快速扫描",
+          "command": "powershell -Command \"Start-MpScan -ScanType QuickScan\""
+        },
+        {
+          "name": "更新Defender病毒库",
+          "command": "powershell -Command \"Update-MpSignature\""
+        }
+      ]
+    },
+    {
+      "name": "系统还原",
+      "items": [
+        {
+          "name": "创建还原点",
+          "command": "powershell -Command \"Checkpoint-Computer -Description 'System Optimizer Restore Point' -RestorePointType MODIFY_SETTINGS\""
+        },
+        {
+          "name": "列出所有还原点",
+          "command": "powershell -Command \"Get-ComputerRestorePoint\""
+        },
+        {
+          "name": "删除所有还原点",
+          "command": "powershell -Command \"Get-ComputerRestorePoint | ForEach-Object { Delete-ComputerRestorePoint -RestorePoint $_ }\""
+        }
+      ]
+    },
+    {
+      "name": "电源管理",
+      "items": [
+        {
+          "name": "设置为高性能电源计划",
+          "command": "powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
+        },
+        {
+          "name": "设置为平衡电源计划",
+          "command": "powercfg -setactive 381b4222-f694-41f0-9685-ff5bb260df2e"
+        },
+        {
+          "name": "设置为节能电源计划",
+          "command": "powercfg -setactive a1841308-3541-4fab-bc81-f71556f20b4a"
+        },
+        {
+          "name": "查看当前电源计划",
+          "command": "powercfg /getactivescheme"
+        },
+        {
+          "name": "禁用显示器睡眠",
+          "command": "powercfg -change -monitor-timeout-ac 0"
+        },
+        {
+          "name": "启用显示器睡眠(15分钟)",
+          "command": "powercfg -change -monitor-timeout-ac 15"
+        }
+      ]
+    },
+    {
+      "name": "存储与磁盘管理",
+      "items": [
+        {
+          "name": "列出所有磁盘",
+          "command": "powershell -Command \"Get-Disk\""
+        },
+        {
+          "name": "列出所有分区",
+          "command": "powershell -Command \"Get-Partition\""
+        },
+        {
+          "name": "查看磁盘使用情况",
+          "command": "powershell -Command \"Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{Name='Used(GB)';Expression={[math]::Round($_.Used/1GB,2)}}, @{Name='Free(GB)';Expression={[math]::Round($_.Free/1GB,2)}}\""
+        },
+        {
+          "name": "优化所有磁盘",
+          "command": "powershell -Command \"Optimize-Volume -DriveLetter C,D,E -ReTrim -Verbose\""
+        }
+      ]
+    },
+    {
+      "name": "用户与权限管理",
+      "items": [
+        {
+          "name": "列出本地用户",
+          "command": "powershell -Command \"Get-LocalUser\""
+        },
+        {
+          "name": "列出本地用户组",
+          "command": "powershell -Command \"Get-LocalGroup\""
+        },
+        {
+          "name": "启用Guest账户",
+          "command": "powershell -Command \"Enable-LocalUser -Name Guest\""
+        },
+        {
+          "name": "禁用Guest账户",
+          "command": "powershell -Command \"Disable-LocalUser -Name Guest\""
+        },
+        {
+          "name": "创建新用户",
+          "command": "powershell -Command \"New-LocalUser -Name \"NewUser\" -Password (ConvertTo-SecureString \"P@ssw0rd\" -AsPlainText -Force)\""
+        },
+        {
+          "name": "将用户加入管理员组",
+          "command": "powershell -Command \"Add-LocalGroupMember -Group Administrators -Member \"NewUser\"\""
+        }
+      ]
+    },
+    {
+      "name": "日志与事件管理",
+      "items": [
+        {
+          "name": "导出系统日志",
+          "command": "powershell -Command \"wevtutil epl System C:\\system_log.evtx\""
+        },
+        {
+          "name": "导出应用程序日志",
+          "command": "powershell -Command \"wevtutil epl Application C:\\app_log.evtx\""
+        },
+        {
+          "name": "清空系统日志",
+          "command": "powershell -Command \"wevtutil cl System\""
+        },
+        {
+          "name": "清空应用程序日志",
+          "command": "powershell -Command \"wevtutil cl Application\""
+        },
+        {
+          "name": "查看最近10条系统错误",
+          "command": "powershell -Command \"Get-EventLog -LogName System -EntryType Error -Newest 10\""
+        }
+      ]
+    }
+  ]
+}

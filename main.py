@@ -3,658 +3,608 @@
 #
 # 版权所有 (C) 2024 - 2026 EndlessPixel 由 system_mini 保留所有权利。
 ###############################################################################
+"""系统优化工具 —— 基于 FastUI 的 Web 界面。
 
-import sys, os, subprocess, ctypes, threading
+界面由 FastUI 声明式组件渲染，所有可执行指令集中维护在 ``commands.json`` 中：
+修改该文件即可增删/调整功能，无需改动任何 Python 代码。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import ctypes
+import itertools
+import json
+import os
+import platform
+import subprocess
+import threading
+import webbrowser
+from collections import deque
+from datetime import datetime
+from pathlib import Path
+from typing import Annotated, Any
+
 import psutil
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QTextEdit,
-    QGridLayout, QLabel, QMessageBox, QLineEdit, QTabWidget, QSizePolicy, QSplitter
-)
-from PyQt5.QtCore import Qt, QTimer, Q_ARG, QMetaObject
-from PyQt5.QtGui import QIcon
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
+from fastui import AnyComponent, FastUI, prebuilt_html
+from fastui import components as c
+from fastui import events as ev
+from fastui.forms import fastui_form
+from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
 # 应用常量
 # ---------------------------------------------------------------------------
-APP_NAME    = "系统优化工具"
-APP_VERSION = "b1.1"
+APP_NAME = '系统优化工具'
+APP_VERSION = 'b2.0'
+HOST = '127.0.0.1'
+PORT = 8000
+
+BASE_DIR = Path(__file__).resolve().parent
+COMMANDS_FILE = BASE_DIR / 'commands.json'
+
+COMMAND_TIMEOUT = 600   # 单条命令的最长执行时间（秒）
+WAIT_TIMEOUT = 60       # 请求等待命令返回的时间，超时后转入后台继续执行
+MAX_LOG_ENTRIES = 100   # 内存中保留的执行日志条数
+MAX_OUTPUT_CHARS = 4000  # 单条日志输出的最大字符数
+
 
 # ---------------------------------------------------------------------------
-# 高 DPI 缩放属性（必须在 QApplication 创建之前设置）
+# 数据模型
 # ---------------------------------------------------------------------------
-if hasattr(Qt, 'AA_EnableHighDpiScaling'):
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+class CommandItem(BaseModel):
+    """一条可执行指令"""
+
+    id: str
+    name: str
+    command: str
+    scope: str  # normal / admin
+    group_id: str
+    group: str
+
+
+class CommandGroup(BaseModel):
+    """一个功能分组"""
+
+    id: str
+    name: str
+    scope: str  # normal / admin
+    items: list[CommandItem]
+
+
+class LogEntry(BaseModel):
+    """一条执行日志"""
+
+    id: int
+    time: str
+    source: str
+    command: str
+    status: str
+    output: str = ''
+
+
+class CustomCommand(BaseModel):
+    """手动输入的命令"""
+
+    command: str
+
 
 # ---------------------------------------------------------------------------
-# 统一样式
+# 指令加载（来自 commands.json）
 # ---------------------------------------------------------------------------
-BTN_STYLE = """
-QPushButton {
-    background-color: #2196F3;
-    color: white;
-    padding: 12px 24px;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    min-width: 150px;
-}
-QPushButton:hover { background-color: #1976D2; }
-QPushButton:pressed { background-color: #1565C0; }
-"""
+def load_commands() -> tuple[list[CommandGroup], dict[str, CommandItem], dict[str, CommandGroup]]:
+    """读取 commands.json，构建分组列表与 id 索引"""
+    if not COMMANDS_FILE.exists():
+        raise FileNotFoundError(f'指令文件不存在：{COMMANDS_FILE}')
 
-CUSTOM_BTN_STYLE = """
-QPushButton {
-    background-color: #4CAF50;
-    color: white;
-    padding: 12px 24px;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-}
-QPushButton:hover { background-color: #45a049; }
-QPushButton:pressed { background-color: #3e8e41; }
-"""
+    raw: dict[str, Any] = json.loads(COMMANDS_FILE.read_text(encoding='utf-8'))
 
-INPUT_STYLE = """
-QLineEdit {
-    background-color: white;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 8px;
-    font-size: 14px;
-}
-QLineEdit:focus { border-color: #2196F3; }
-"""
+    groups: list[CommandGroup] = []
+    items: dict[str, CommandItem] = {}
+    group_map: dict[str, CommandGroup] = {}
 
-LABEL_STYLE = """
-QLabel {
-    font-size: 16px;
-    font-weight: 500;
-    margin-bottom: 8px;
-}
-"""
+    for scope, prefix in (('normal', 'n'), ('admin', 'a')):
+        for group_index, group_raw in enumerate(raw.get(scope, [])):
+            group_id = f'{prefix}{group_index}'
+            entries: list[CommandItem] = []
+
+            for item_index, item_raw in enumerate(group_raw.get('items', [])):
+                item_id = f'{group_id}-{item_index}'
+                item = CommandItem(
+                    id=item_id,
+                    name=item_raw['name'],
+                    command=item_raw['command'],
+                    scope=scope,
+                    group_id=group_id,
+                    group=group_raw['name'],
+                )
+                entries.append(item)
+                items[item_id] = item
+
+            group = CommandGroup(
+                id=group_id,
+                name=group_raw['name'],
+                scope=scope,
+                items=entries,
+            )
+            groups.append(group)
+            group_map[group_id] = group
+
+    return groups, items, group_map
+
+
+GROUPS, COMMANDS, GROUP_MAP = load_commands()
+
 
 # ---------------------------------------------------------------------------
-# 通用工具函数
+# 权限检测
 # ---------------------------------------------------------------------------
-def is_admin():
-    """判断当前进程是否具有管理员权限"""
+def is_admin() -> bool:
+    """判断当前进程是否具有管理员 / root 权限"""
+    if os.name == 'nt':
+        try:
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except Exception:
+            return False
     try:
-        return bool(ctypes.windll.shell32.IsUserAnAdmin())
-    except Exception:
+        return os.geteuid() == 0
+    except AttributeError:
         return False
 
 
-def _log(log_widget, html):
-    """线程安全地向日志控件追加 HTML 内容"""
-    QMetaObject.invokeMethod(
-        log_widget, "append", Qt.QueuedConnection, Q_ARG(str, html)
+# ---------------------------------------------------------------------------
+# 执行日志
+# ---------------------------------------------------------------------------
+_LOG_SEQ = itertools.count(1)
+_LOGS: deque[LogEntry] = deque(maxlen=MAX_LOG_ENTRIES)
+_LOG_LOCK = threading.Lock()
+
+
+def _now() -> str:
+    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+
+def _clip(text: str) -> str:
+    text = (text or '').strip()
+    if len(text) <= MAX_OUTPUT_CHARS:
+        return text
+    return text[:MAX_OUTPUT_CHARS] + '\n...（输出过长，已截断）'
+
+
+def _append_log(source: str, command: str, status: str, output: str = '') -> LogEntry:
+    entry = LogEntry(
+        id=next(_LOG_SEQ),
+        time=_now(),
+        source=source,
+        command=command,
+        status=status,
+        output=_clip(output),
+    )
+    with _LOG_LOCK:
+        _LOGS.appendleft(entry)
+    return entry
+
+
+def execute_command(source: str, command: str) -> LogEntry:
+    """同步执行命令并把结果写入日志，供后台线程调用"""
+    entry = _append_log(source, command, '执行中', '')
+
+    try:
+        completed = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            errors='replace',
+            timeout=COMMAND_TIMEOUT,
+        )
+        output = completed.stdout or ''
+        if completed.stderr:
+            output = f'{output}\n[错误输出]\n{completed.stderr}'
+        entry.status = '执行成功' if completed.returncode == 0 else f'执行失败（退出码 {completed.returncode}）'
+        entry.output = _clip(output) or '（命令没有产生输出）'
+    except subprocess.TimeoutExpired:
+        entry.status = f'执行超时（超过 {COMMAND_TIMEOUT} 秒）'
+        entry.output = '命令已被终止，请拆分为更小的操作后重试。'
+    except Exception as exc:  # noqa: BLE001 - 兜底，保证界面可用
+        entry.status = '执行异常'
+        entry.output = str(exc)
+
+    return entry
+
+
+async def submit_command(source: str, command: str) -> str:
+    """提交命令执行，超时则转入后台继续运行"""
+    loop = asyncio.get_running_loop()
+    try:
+        entry = await asyncio.wait_for(
+            loop.run_in_executor(None, execute_command, source, command),
+            timeout=WAIT_TIMEOUT,
+        )
+        return f'“{source}” {entry.status}'
+    except asyncio.TimeoutError:
+        return f'“{source}” 执行时间较长，已转入后台运行，可在执行日志中查看结果'
+
+
+# ---------------------------------------------------------------------------
+# 界面片段
+# ---------------------------------------------------------------------------
+def layout(*components: AnyComponent) -> list[AnyComponent]:
+    """页面骨架：标题、导航栏、主体内容"""
+    return [
+        c.PageTitle(text=f'{APP_NAME} · {APP_VERSION}'),
+        c.Navbar(
+            title=APP_NAME,
+            start_links=[
+                c.Link(components=[c.Text(text='首页')], on_click=ev.GoToEvent(url='/')),
+                c.Link(components=[c.Text(text='执行日志')], on_click=ev.GoToEvent(url='/logs')),
+            ],
+            end_links=[
+                c.Link(
+                    components=[c.Text(text='管理员权限：已启用' if is_admin() else '管理员权限：未启用')],
+                )
+            ],
+        ),
+        c.Page(
+            components=[
+                c.Div(class_name='container-fluid py-3', components=list(components)),
+            ]
+        ),
+    ]
+
+
+def permission_notice() -> AnyComponent:
+    """权限提示条"""
+    if is_admin():
+        return c.Paragraph(
+            text='已检测到管理员权限，所有功能均可使用。',
+            class_name='alert alert-success mt-3 mb-0',
+        )
+    return c.Paragraph(
+        text='未检测到管理员权限，管理员功能将不可用。如需使用，请以管理员身份重新启动本工具。',
+        class_name='alert alert-warning mt-3 mb-0',
     )
 
 
-def run_command(command, log_widget):
-    """在后台线程中执行命令，并将结果以彩色 HTML 形式输出到日志"""
-    def execute():
-        _log(log_widget, f'<span style="color: blue;">PS C:\\Windows\\System32 > {command}</span>')
-        _log(log_widget, '')
-        try:
-            result = subprocess.run(
-                command, shell=True, check=True,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+def system_info_components() -> list[AnyComponent]:
+    """系统状态卡片"""
+    cpu = psutil.cpu_percent(interval=0.3)
+    memory = psutil.virtual_memory()
+    disk = psutil.disk_usage(os.path.abspath(os.sep))
+    net = psutil.net_io_counters()
+
+    cards = [
+        ('CPU 使用率', f'{cpu}%'),
+        (
+            '内存使用率',
+            f'{memory.percent}%（{memory.used / 2**30:.1f} / {memory.total / 2**30:.1f} GB）',
+        ),
+        (
+            '磁盘使用率',
+            f'{disk.percent}%（剩余 {disk.free / 2**30:.1f} GB）',
+        ),
+        (
+            '网络流量（上传 / 下载）',
+            f'{net.bytes_sent / 2**20:.1f} MB / {net.bytes_recv / 2**20:.1f} MB',
+        ),
+    ]
+
+    return [
+        c.Div(
+            class_name='row g-3',
+            components=[
+                c.Div(
+                    class_name='col-6 col-md-3',
+                    components=[
+                        c.Div(
+                            class_name='card h-100 shadow-sm',
+                            components=[
+                                c.Div(
+                                    class_name='card-body',
+                                    components=[
+                                        c.Heading(text=title, level=6, class_name='card-subtitle text-muted mb-2'),
+                                        c.Text(text=value),
+                                    ],
+                                )
+                            ],
+                        )
+                    ],
+                )
+                for title, value in cards
+            ],
+        ),
+        c.Paragraph(
+            text=f'更新时间：{_now()} · 平台：{platform.system()} {platform.release()}',
+            class_name='text-muted small mt-2 mb-0',
+        ),
+    ]
+
+
+def command_grid(group: CommandGroup) -> list[AnyComponent]:
+    """分组内的指令按钮"""
+    admin = is_admin()
+    buttons: list[AnyComponent] = []
+
+    for item in group.items:
+        locked = group.scope == 'admin' and not admin
+        buttons.append(
+            c.Button(
+                text=item.name,
+                on_click=None if locked else ev.GoToEvent(url=f'/cmd/{item.id}'),
+                named_style='secondary' if locked else 'primary',
+                class_name='m-1',
             )
-            _log(log_widget, f'<span style="color: black;">{result.stdout}</span>')
-            _log(log_widget, '<span style="color: green;">命令执行成功</span>')
-            print("命令执行成功")
-            _log(log_widget, '')
-        except subprocess.CalledProcessError as e:
-            _log(log_widget, f'<span style="color: red;">{e.stderr}</span>')
-            _log(log_widget, '<span style="color: red;">命令执行失败</span>')
-            print("命令执行失败")
-            _log(log_widget, '')
-            _log(log_widget, '<span style="color: red;">请检查:</span>')
-            for tip in (
-                "· 命令是否正确",
-                "· 权限是否足够",
-                "· 系统环境是否配置正确",
-                "· 系统版本是否支持",
-                "· 文件是否完整",
-                "· 其他可能的错误",
-            ):
-                _log(log_widget, f'<span style="color: red;"> {tip}</span>')
-        except Exception as e:
-            _log(log_widget, f'<span style="color: red;">发生未知错误: {str(e)}</span>')
+        )
 
-    threading.Thread(target=execute, daemon=True).start()
+    return [c.Div(class_name='d-flex flex-wrap', components=buttons)]
 
 
-def confirm_action(parent, message):
-    """弹出确认对话框"""
-    reply = QMessageBox.question(
-        parent, '确认', message,
-        QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+def group_link_list(scope: str) -> AnyComponent:
+    """分组导航列表"""
+    links = [
+        c.Link(
+            components=[c.Text(text=f'{group.name}（{len(group.items)}）')],
+            on_click=ev.GoToEvent(url=f'/group/{group.id}'),
+        )
+        for group in GROUPS
+        if group.scope == scope
+    ]
+    return c.LinkList(links=links, mode='vertical')
+
+
+def custom_command_form() -> list[AnyComponent]:
+    """手动执行命令表单"""
+    return [
+        c.Heading(text='手动执行命令', level=3, class_name='mt-4'),
+        c.Form(
+            submit_url='/api/custom/run',
+            method='POST',
+            form_fields=[
+                c.FormFieldInput(
+                    name='command',
+                    title='命令',
+                    placeholder='例如：ipconfig /all',
+                    required=True,
+                )
+            ],
+        ),
+    ]
+
+
+def log_components() -> list[AnyComponent]:
+    """执行日志列表"""
+    with _LOG_LOCK:
+        entries = list(_LOGS)
+
+    if not entries:
+        return [c.Paragraph(text='暂无执行记录，执行任意命令后结果会显示在这里。')]
+
+    blocks: list[AnyComponent] = []
+    for entry in entries:
+        blocks.append(
+            c.Div(
+                class_name='card mb-3 shadow-sm',
+                components=[
+                    c.Div(
+                        class_name='card-body',
+                        components=[
+                            c.Heading(text=f'#{entry.id} · {entry.source}', level=5, class_name='card-title'),
+                            c.Paragraph(
+                                text=f'时间：{entry.time} · 状态：{entry.status}',
+                                class_name='text-muted small',
+                            ),
+                            c.Code(text=entry.command, class_name='mb-2'),
+                            c.Code(text=entry.output or '（无输出）'),
+                        ],
+                    )
+                ],
+            )
+        )
+    return blocks
+
+
+# ---------------------------------------------------------------------------
+# FastAPI 应用
+# ---------------------------------------------------------------------------
+app = FastAPI(title=APP_NAME, version=APP_VERSION)
+
+
+@app.get('/api/', response_model=FastUI, response_model_exclude_none=True)
+def index_page() -> list[AnyComponent]:
+    """首页：系统状态、手动执行、功能分组导航"""
+    return layout(
+        c.Heading(text='系统状态', level=3),
+        c.Div(
+            class_name='mb-3',
+            components=[
+                c.Button(
+                    text='刷新系统信息',
+                    on_click=ev.PageEvent(name='refresh-info'),
+                    named_style='secondary',
+                )
+            ],
+        ),
+        c.ServerLoad(
+            path='/system-info',
+            load_trigger=ev.PageEvent(name='refresh-info'),
+            components=system_info_components(),
+        ),
+        permission_notice(),
+        *custom_command_form(),
+        c.Heading(text='功能分组', level=3, class_name='mt-4'),
+        c.Div(
+            class_name='row',
+            components=[
+                c.Div(
+                    class_name='col-md-6',
+                    components=[c.Heading(text='普通功能', level=5), group_link_list('normal')],
+                ),
+                c.Div(
+                    class_name='col-md-6',
+                    components=[c.Heading(text='管理员功能', level=5), group_link_list('admin')],
+                ),
+            ],
+        ),
     )
-    return reply == QMessageBox.Yes
 
 
-# ---------------------------------------------------------------------------
-# 普通功能分组
-# ---------------------------------------------------------------------------
-NORMAL_FUNCTION_GROUPS = {
-    "系统工具": [
-        ("打开任务管理器", "start taskmgr"),
-        ("打开事件查看器", "start eventvwr"),
-        ("打开注册表编辑器", "start regedit"),
-        ("打开系统信息", "start msinfo32"),
-        ("打开控制面板", "start control"),
-        ("打开任务计划程序", "start taskschd.msc"),
-        ("打开性能监视器", "start perfmon.msc"),
-        ("打开计算机管理", "start compmgmt.msc"),
-        ("打开本地用户和组", "start lusrmgr.msc"),
-        ("打开组策略编辑器", "start gpedit.msc"),
-        ("打开磁盘清理", "start cleanmgr"),
-        ("打开资源监视器", "start resmon"),
-        ("打开系统配置(MSConfig)", "start msconfig"),
-        ("打开DirectX诊断工具", "start dxdiag"),
-        ("打开组件服务", "start dcomcnfg"),
-        ("打开ODBC数据源(64位)", "start odbcad32"),
-        ("打开Windows内存诊断", "start mdsched"),
-        ("打开打印管理", "start printmanagement.msc"),
-        ("打开证书管理", "start certmgr.msc"),
-        ("打开本地安全策略", "start secpol.msc"),
-    ],
-    "资源管理": [
-        ("打开文件资源管理器", "start explorer"),
-        ("打开磁盘管理", "start diskmgmt.msc"),
-        ("打开设备管理器", "start devmgmt.msc"),
-        ("打开服务管理器", "start services.msc"),
-        ("打开存储感知", "start ms-settings:storagesense"),
-        ("打开应用和功能", "start ms-settings:appsfeatures"),
-        ("打开任务栏设置", "start ms-settings:taskbar"),
-        ("打开磁盘碎片整理", "start dfrgui"),
-        ("打开共享文件夹管理", "start fsmgmt.msc"),
-        ("打开可靠性和历史记录", "start control /name Microsoft.ReliabilityMonitor"),
-        ("打开系统属性", "start sysdm.cpl"),
-        ("打开环境变量设置", "powershell rundll32 sysdm.cpl,EditEnvironmentVariables"),
-    ],
-    "网络与安全": [
-        ("打开网络连接", "start ncpa.cpl"),
-        ("打开防火墙设置", "start firewall.cpl"),
-        ("打开用户账户控制设置", "start ms-settings:uac"),
-        ("打开 Windows 安全中心", "start ms-settings:windowsdefender"),
-        ("打开网络状态", "start ms-settings:network-status"),
-        ("打开 Wi-Fi 设置", "start ms-settings:network-wifi"),
-        ("打开 VPN 设置", "start ms-settings:network-vpn"),
-        ("打开蓝牙设置", "start ms-settings:bluetooth"),
-        ("打开代理设置", "start ms-settings:network-proxy"),
-        ("打开数据使用量", "start ms-settings:datausage"),
-        ("打开网络重置", "start ms-settings:network-reset"),
-        ("打开Windows Defender防火墙高级设置", "start wf.msc"),
-        ("打开远程桌面设置", "start ms-settings:remotedesktop"),
-        ("打开BitLocker设置", "start control /name Microsoft.BitLockerDriveEncryption"),
-        ("刷新DNS缓存", "powershell Clear-DnsClientCache"),
-        ("查看IP配置", "powershell ipconfig /all"),
-        ("测试网络连通性(谷歌)", "powershell ping 8.8.8.8"),
-    ],
-    "命令交互": [
-        ("打开命令提示符", "start cmd"),
-        ("打开 Windows PowerShell", "start powershell"),
-        ("打开 Windows PowerShell(管理员)", "powershell Start-Process powershell -Verb RunAs"),
-        ("打开命令提示符(管理员)", "powershell Start-Process cmd -Verb RunAs"),
-        ("打开 Windows Terminal", "wt"),
-        ("打开 Windows Terminal(管理员)", "powershell Start-Process wt -Verb RunAs"),
-        ("打开Python交互环境", "start python"),
-        ("打开Node.js交互环境", "start node"),
-    ],
-    "多媒体工具": [
-        ("打开计算器", "start calc"),
-        ("打开画图", "start mspaint"),
-        ("打开记事本", "start notepad"),
-        ("打开截图工具", "start snippingtool"),
-        ("打开屏幕录制", "start xboxapp:record"),
-        ("打开相机", "start microsoft.windows.camera:"),
-        ("打开照片应用", "start ms-photos:"),
-        ("打开媒体播放器", "start mplay32"),
-        ("打开音量混合器", "start sndvol"),
-        ("打开声音控制面板", "start mmsys.cpl"),
-        ("打开显示颜色校准", "start dccw"),
-    ],
-    "系统设置": [
-        ("打开显示设置", "start ms-settings:display"),
-        ("打开声音设置", "start ms-settings:sound"),
-        ("打开电源选项", "start control powercfg.cpl"),
-        ("打开日期和时间设置", "start ms-settings:dateandtime"),
-        ("打开账户信息", "start ms-settings:yourinfo"),
-        ("打开个性化设置", "start ms-settings:personalization"),
-        ("打开主题设置", "start ms-settings:themes"),
-        ("打开锁屏设置", "start ms-settings:lockscreen"),
-        ("打开通知设置", "start ms-settings:notifications"),
-        ("打开存储设置", "start ms-settings:storagesense"),
-        ("打开更新与安全", "start ms-settings:windowsupdate"),
-        ("打开备份设置", "start ms-settings:backup"),
-        ("打开疑难解答", "start ms-settings:troubleshoot"),
-        ("打开激活设置", "start ms-settings:activation"),
-        ("打开远程桌面设置", "start ms-settings:remotedesktop"),
-        ("打开默认应用", "start ms-settings:defaultapps"),
-        ("打开应用执行别名", "start ms-settings:appsforwebsites"),
-        ("打开开发者选项", "start ms-settings:developers"),
-    ],
-    "办公与效率": [
-        ("打开写字板", "start write"),
-        ("打开字符映射表", "start charmap"),
-        ("打开步骤记录器", "start psr"),
-        ("打开便笺", "start stikynot"),
-        ("打开放大镜", "start magnify"),
-        ("打开讲述人", "start narrator"),
-        ("打开屏幕键盘", "start osk"),
-        ("打开高对比度设置", "start ms-settings:easeofaccess-highcontrast"),
-        ("打开语音识别", "start ms-settings:speech"),
-        ("打开任务视图", "powershell explorer.exe shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}"),
-    ],
-    "运维与高级功能": [
-        ("打开组策略结果", "start rsop.msc"),
-        ("打开Windows更新日志", "powershell Get-WindowsUpdateLog"),
-        ("生成系统健康报告", "powershell Get-ComputerInfo"),
-        ("导出已安装程序列表", "powershell Get-WmiObject -Class Win32_Product | Out-File C:\\installed_apps.txt"),
-        ("重启Windows资源管理器", "powershell Stop-Process -Name explorer -Force; Start-Process explorer"),
-        ("关机", "powershell Stop-Computer"),
-        ("重启", "powershell Restart-Computer"),
-        ("注销当前用户", "powershell logoff"),
-        ("锁定计算机", "powershell rundll32 user32.dll,LockWorkStation"),
-        ("休眠", "powershell rundll32 powrprof.dll,SetSuspendState Hibernate"),
-        ("睡眠", "powershell rundll32 powrprof.dll,SetSuspendState Standby"),
-    ],
-    "WSL / 开发工具": [
-        ("打开WSL终端", "wsl"),
-        ("打开WSL(默认发行版)", "wsl ~"),
-        ("列出WSL发行版", "powershell wsl --list --verbose"),
-        ("打开Docker Desktop", "start \"Docker Desktop\" \"C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe\""),
-        ("打开Git Bash", "start \"\" \"C:\\Program Files\\Git\\git-bash.exe\""),
-        ("打开VS Code", "start code"),
-        ("打开Notepad++", "start notepad++"),
-    ],
-}
-
-# ---------------------------------------------------------------------------
-# 管理员功能分组
-# ---------------------------------------------------------------------------
-ADMIN_FUNCTION_GROUPS = {
-    "远程与连接": [
-        ("启用远程桌面", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f'),
-        ("关闭远程桌面", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 1 /f'),
-        ("启用无密码连接", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa" /v LimitBlankPasswordUse /t REG_DWORD /d 0 /f'),
-        ("关闭无密码连接", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa" /v LimitBlankPasswordUse /t REG_DWORD /d 1 /f'),
-        ("启用远程协助", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 1 /f && netsh advfirewall firewall set rule group="Remote Assistance" new enable=yes'),
-        ("关闭远程协助", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 0 /f && netsh advfirewall firewall set rule group="Remote Assistance" new enable=no'),
-        ("设置RDP端口为3389", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v PortNumber /t REG_DWORD /d 3389 /f'),
-        ("限制RDP仅允许NLA", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 1 /f'),
-    ],
-    "安全防护": [
-        ("启用 Defender", "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $false\""),
-        ("禁用 Defender", "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $true\""),
-        ("用于内置管理员帐户的管理员批准模式", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v FilterAdministratorToken /t REG_DWORD /d 1 /f'),
-        ("关闭 Smartscreen 应用筛选器 (旧版)", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer" /v SmartScreenEnabled /t REG_SZ /d off /f'),
-        ("关闭 Smartscreen 应用筛选器 (新版)", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer" /v SmartScreenEnabled /t REG_SZ /d off /f & reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\PhishingFilter" /v EnabledV9 /t REG_DWORD /d 0 /f'),
-        ("关闭 UAC", 'powershell -Command "Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System -Name EnableLUA -Value 0"'),
-        ("启用 UAC", 'powershell -Command "Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System -Name EnableLUA -Value 1"'),
-        ("禁用 Windows 遥测数据收集", 'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" /v AllowTelemetry /t REG_DWORD /d 0 /f'),
-        ("启用 Windows 遥测数据收集", 'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" /v AllowTelemetry /t REG_DWORD /d 3 /f'),
-        ("禁用SMBv1协议", 'powershell -Command "Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol"'),
-        ("启用SMBv1协议", 'powershell -Command "Enable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol"'),
-        ("禁用PowerShell脚本执行", 'powershell -Command "Set-ExecutionPolicy Restricted -Force"'),
-        ("启用PowerShell脚本执行", 'powershell -Command "Set-ExecutionPolicy RemoteSigned -Force"'),
-    ],
-    "系统服务管理": [
-        ("启用 SysMain", "sc config SysMain start= auto && net start SysMain"),
-        ("禁用 SysMain", "net stop SysMain && sc config SysMain start= disabled"),
-        ("启用 Windows 索引", "sc config WSearch start= auto && net start WSearch"),
-        ("禁用 Windows 索引", "net stop WSearch && sc config WSearch start= disabled"),
-        ("禁用家庭组服务", "net stop HomeGroupListener && net stop HomeGroupProvider && sc config HomeGroupListener start= disabled && sc config HomeGroupProvider start= disabled"),
-        ("启用家庭组服务", "sc config HomeGroupListener start= auto && sc config HomeGroupProvider start= auto && net start HomeGroupListener && net start HomeGroupProvider"),
-        ("启用自动更新", "sc config wuauserv start= auto && net start wuauserv"),
-        ("停止自动更新", "net stop wuauserv && sc config wuauserv start= disabled"),
-        ("启用自动时间同步", "sc config w32time start= auto && net start w32time"),
-        ("禁用自动时间同步", "net stop w32time && sc config w32time start= disabled"),
-        ("启用打印后台处理", "sc config Spooler start= auto && net start Spooler"),
-        ("禁用打印后台处理", "net stop Spooler && sc config Spooler start= disabled"),
-    ],
-    "系统维护清理": [
-        ("清空回收站", 'powershell -NoProfile -Command "Get-ChildItem -Path C:\\$Recycle.Bin -Force -Recurse | Remove-Item -Recurse -Force"'),
-        ("清理系统临时文件", 'powershell -Command "Get-ChildItem -Path $env:TEMP -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue"'),
-        ("清理 WinTemp", 'powershell -Command "Remove-Item -Path C:\\Windows\\Temp\\* -Recurse -Force -ErrorAction SilentlyContinue"'),
-        ("磁盘碎片整理C：", "defrag C: /U /V"),
-        ("优化磁盘C：", "defrag C: /O"),
-        ("清理 Windows 更新缓存", 'powershell -Command "Stop-Service wuauserv; Remove-Item -Path C:\\Windows\\SoftwareDistribution\\Download\\* -Recurse -Force -ErrorAction SilentlyContinue; Start-Service wuauserv"'),
-        ("禁用 Windows 错误报告", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting" /v Disabled /t REG_DWORD /d 1 /f'),
-        ("启用 Windows 错误报告", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting" /v Disabled /t REG_DWORD /d 0 /f'),
-        ("禁用系统还原", "powershell Disable-ComputerRestore -Drive C:\\"),
-        ("启用系统还原", "powershell Enable-ComputerRestore -Drive C:\\"),
-        ("清理组件存储(无破坏)", "dism /Online /Cleanup-Image /StartComponentCleanup"),
-        ("扫描系统组件完整性", "dism /Online /Cleanup-Image /ScanHealth"),
-        ("修复系统组件", "dism /Online /Cleanup-Image /RestoreHealth"),
-        ("修复系统文件", "sfc /scannow"),
-    ],
-    "系统进程管理": [
-        ("重启资源管理器", "taskkill /im explorer.exe /f && start explorer.exe"),
-        ("杀死资源管理器", "taskkill /im explorer.exe /f"),
-        ("启动资源管理器", "start explorer.exe"),
-        ("杀死命令提示符", "taskkill /im cmd.exe /f"),
-        ("结束无响应任务", 'powershell -Command "Get-Process | Where-Object { $_.Responding -eq $false } | Stop-Process -Force"'),
-    ],
-    "系统启动设置": [
-        ("禁用快速启动", "powercfg /h off"),
-        ("启用快速启动", "powercfg /h on"),
-        ("禁用应用自动启动", 'reg add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /f && reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run" /f'),
-        ("启用应用自动启动", "echo 需手动配置注册表项恢复自动启动程序"),
-        ("禁用休眠功能", "powercfg /hibernate off"),
-        ("启用休眠功能", "powercfg /hibernate on"),
-        ("启用传统登录界面", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v dontdisplaylastusername /t REG_DWORD /d 0 /f'),
-        ("禁用传统登录界面", 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v dontdisplaylastusername /t REG_DWORD /d 1 /f'),
-    ],
-    "网络管理配置": [
-        ("刷新 DNS", "ipconfig /flushdns"),
-        ("释放 IP", "ipconfig /release"),
-        ("重新获取 IP", "ipconfig /renew"),
-        ("重启 DNS 缓存", "net stop dnscache && net start dnscache"),
-        ("禁用网络发现", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters" /v AutoShareServer /t REG_DWORD /d 0 /f && reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters" /v DisallowUnencryptedGuestAuth /t REG_DWORD /d 1 /f'),
-        ("启用网络发现", 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters" /v AutoShareServer /t REG_DWORD /d 1 /f && reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters" /v DisallowUnencryptedGuestAuth /t REG_DWORD /d 0 /f'),
-        ("重置 Winsock", "netsh winsock reset"),
-        ("重置 TCP/IP 协议栈", "netsh int ip reset"),
-        ("查看所有网络连接", "netstat -ano"),
-        ("显示ARP缓存表", "arp -a"),
-        ("显示路由表", "route print"),
-    ],
-    "Windows 更新设置": [
-        ("禁用自动更新驱动", 'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v DontSearchWindowsUpdate /t REG_DWORD /d 1 /f && reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v SearchOrderConfig /t REG_DWORD /d 0 /f'),
-        ("启用自动更新驱动", 'reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v DontSearchWindowsUpdate /f && reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DriverSearching" /v SearchOrderConfig /f'),
-        ("暂停Windows更新7天", 'powershell -Command "Set-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings -Name PauseUpdatesExpiryTime -Value (Get-Date).AddDays(7).ToString()"'),
-        ("恢复Windows更新", 'powershell -Command "Remove-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings -Name PauseUpdatesExpiryTime"'),
-    ],
-    "时间与时区管理": [
-        ("同步 Internet 时间", "w32tm /resync"),
-        ("查看当前时区", "tzutil /g"),
-        ("设为北京时区", 'tzutil /s "China Standard Time"'),
-        ("设为香港时区", 'tzutil /s "China Standard Time"'),
-        ("设为UTC时区", 'tzutil /s "UTC"'),
-    ],
-    "视觉效果设置": [
-        ("低质量壁纸", 'reg add "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /t REG_DWORD /d 96 /f'),
-        ("默认质量壁纸", 'reg delete "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /f'),
-        ("高质量壁纸", 'reg add "HKCU\\Control Panel\\Desktop" /v JPEGImportQuality /t REG_DWORD /d 256 /f'),
-        ("调整为最佳性能", 'powershell -Command "Set-ItemProperty -Path HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects -Name VisualFXSetting -Value 2"'),
-        ("恢复为系统默认视觉效果", 'powershell -Command "Remove-ItemProperty -Path HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects -Name VisualFXSetting"'),
-    ],
-    "安全扫描": [
-        ("全盘扫描", 'powershell -Command "Start-MpScan -ScanType FullScan"'),
-        ("快速扫描", 'powershell -Command "Start-MpScan -ScanType QuickScan"'),
-        ("更新Defender病毒库", 'powershell -Command "Update-MpSignature"'),
-    ],
-    "系统还原": [
-        ("创建还原点", 'powershell -Command "Checkpoint-Computer -Description \'System Optimizer Restore Point\' -RestorePointType MODIFY_SETTINGS"'),
-        ("列出所有还原点", 'powershell -Command "Get-ComputerRestorePoint"'),
-        ("删除所有还原点", 'powershell -Command "Get-ComputerRestorePoint | ForEach-Object { Delete-ComputerRestorePoint -RestorePoint $_ }"'),
-    ],
-    "电源管理": [
-        ("设置为高性能电源计划", 'powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'),
-        ("设置为平衡电源计划", 'powercfg -setactive 381b4222-f694-41f0-9685-ff5bb260df2e'),
-        ("设置为节能电源计划", 'powercfg -setactive a1841308-3541-4fab-bc81-f71556f20b4a'),
-        ("查看当前电源计划", "powercfg /getactivescheme"),
-        ("禁用显示器睡眠", 'powercfg -change -monitor-timeout-ac 0'),
-        ("启用显示器睡眠(15分钟)", 'powercfg -change -monitor-timeout-ac 15'),
-    ],
-    "存储与磁盘管理": [
-        ("列出所有磁盘", 'powershell -Command "Get-Disk"'),
-        ("列出所有分区", 'powershell -Command "Get-Partition"'),
-        ("查看磁盘使用情况", 'powershell -Command "Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{Name=\'Used(GB)\';Expression={[math]::Round($_.Used/1GB,2)}}, @{Name=\'Free(GB)\';Expression={[math]::Round($_.Free/1GB,2)}}"'),
-        ("优化所有磁盘", 'powershell -Command "Optimize-Volume -DriveLetter C,D,E -ReTrim -Verbose"'),
-    ],
-    "用户与权限管理": [
-        ("列出本地用户", 'powershell -Command "Get-LocalUser"'),
-        ("列出本地用户组", 'powershell -Command "Get-LocalGroup"'),
-        ("启用Guest账户", 'powershell -Command "Enable-LocalUser -Name Guest"'),
-        ("禁用Guest账户", 'powershell -Command "Disable-LocalUser -Name Guest"'),
-        ("创建新用户", 'powershell -Command "New-LocalUser -Name \"NewUser\" -Password (ConvertTo-SecureString \"P@ssw0rd\" -AsPlainText -Force)"'),
-        ("将用户加入管理员组", 'powershell -Command "Add-LocalGroupMember -Group Administrators -Member \"NewUser\""'),
-    ],
-    "日志与事件管理": [
-        ("导出系统日志", 'powershell -Command "wevtutil epl System C:\\system_log.evtx"'),
-        ("导出应用程序日志", 'powershell -Command "wevtutil epl Application C:\\app_log.evtx"'),
-        ("清空系统日志", 'powershell -Command "wevtutil cl System"'),
-        ("清空应用程序日志", 'powershell -Command "wevtutil cl Application"'),
-        ("查看最近10条系统错误", 'powershell -Command "Get-EventLog -LogName System -EntryType Error -Newest 10"'),
-    ],
-}
+@app.get('/api/system-info', response_model=FastUI, response_model_exclude_none=True)
+def system_info_fragment() -> list[AnyComponent]:
+    """系统状态片段，供 ServerLoad 局部刷新"""
+    return system_info_components()
 
 
-# ---------------------------------------------------------------------------
-# 主窗口
-# ---------------------------------------------------------------------------
-class SystemOptimizer(QMainWindow):
-    def __init__(self):
-        super().__init__()
+@app.get('/api/group/{group_id}', response_model=FastUI, response_model_exclude_none=True)
+def group_page(group_id: str) -> list[AnyComponent]:
+    """分组页：列出该分组下的全部指令"""
+    group = GROUP_MAP.get(group_id)
+    if group is None:
+        raise HTTPException(status_code=404, detail='未找到该功能分组')
 
-        # 窗口图标
-        icon_path = "app_icon.ico"
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
-        else:
-            print(f"图标文件 {icon_path} 不存在，请检查路径。")
+    return layout(
+        c.Heading(text=group.name, level=3),
+        c.Paragraph(
+            text=f'共 {len(group.items)} 条指令 · 类型：{"管理员功能" if group.scope == "admin" else "普通功能"}',
+            class_name='text-muted',
+        ),
+        c.Div(
+            class_name='mb-3',
+            components=[c.Button(text='返回首页', on_click=ev.GoToEvent(url='/'), named_style='secondary')],
+        ),
+        permission_notice() if group.scope == 'admin' else c.Div(components=[]),
+        *command_grid(group),
+        *custom_command_form(),
+    )
 
-        self.setWindowTitle(APP_NAME)
-        self.resize(800, 450)
 
-        # 全局字体
-        font = self.font()
-        font.setPointSize(10)
-        self.setFont(font)
+@app.get('/api/cmd/{command_id}', response_model=FastUI, response_model_exclude_none=True)
+def command_page(command_id: str) -> list[AnyComponent]:
+    """指令确认页"""
+    item = COMMANDS.get(command_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail='未找到该指令')
 
-        # 中央控件
-        main_widget = QWidget()
-        self.setCentralWidget(main_widget)
-        main_layout = QVBoxLayout(main_widget)
+    locked = item.scope == 'admin' and not is_admin()
 
-        # 日志窗口
-        self.log_text = QTextEdit()
-        self.log_text.setReadOnly(True)
-        self.log_text.setAcceptRichText(True)
-        log_font = self.log_text.font()
-        log_font.setFamily("Microsoft YaHei")
-        log_font.setPointSize(10)
-        self.log_text.setFont(log_font)
+    body: list[AnyComponent] = [
+        c.Heading(text=item.name, level=3),
+        c.Paragraph(
+            text=f'所属分组：{item.group} · 类型：{"管理员功能" if item.scope == "admin" else "普通功能"}',
+            class_name='text-muted',
+        ),
+        c.Code(text=item.command, class_name='my-3'),
+    ]
 
-        # 选项卡容器
-        self.tab_widget = QTabWidget()
-
-        # 上下分割
-        splitter = QSplitter(Qt.Vertical)
-        splitter.addWidget(self.log_text)
-        splitter.addWidget(self.tab_widget)
-        splitter.setSizes([200, 400])
-        main_layout.addWidget(splitter)
-
-        # 构建各个选项卡
-        self._build_normal_tab()
-        self._build_admin_tab()
-        self._build_system_info_tab()
-
-        # 日志欢迎信息
-        self._print_welcome()
-
-        # 定时刷新系统信息
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_system_info)
-        self.timer.start(2000)
-
-    # ------------------------------------------------------------------
-    # 选项卡构建
-    # ------------------------------------------------------------------
-    def _build_group_tabs(self, groups, sub_tab_parent):
-        """根据分组字典，为每个分组创建一个带按钮网格的子选项卡"""
-        for group_name, group_buttons in groups.items():
-            sub_tab = QWidget()
-            sub_layout = QVBoxLayout(sub_tab)
-
-            grid_layout = QGridLayout()
-            columns = 3
-            for index, (button_text, command) in enumerate(group_buttons):
-                row, col = divmod(index, columns)
-                self.add_button(grid_layout, button_text, command, self.log_text, row, col)
-
-            sub_layout.addLayout(grid_layout)
-            self.add_custom_command(sub_layout, "手动执行命令", self.log_text)
-
-            sub_tab_parent.addTab(sub_tab, group_name)
-
-    def _build_normal_tab(self):
-        normal_tab = QWidget()
-        normal_layout = QVBoxLayout(normal_tab)
-        normal_sub_tab = QTabWidget()
-
-        self._build_group_tabs(NORMAL_FUNCTION_GROUPS, normal_sub_tab)
-
-        normal_layout.addWidget(normal_sub_tab)
-        self.tab_widget.addTab(normal_tab, "普通功能")
-
-    def _build_admin_tab(self):
-        admin_tab = QWidget()
-        admin_layout = QVBoxLayout(admin_tab)
-        admin_sub_tab = QTabWidget()
-
-        self._build_group_tabs(ADMIN_FUNCTION_GROUPS, admin_sub_tab)
-
-        admin_layout.addWidget(admin_sub_tab)
-        self.tab_widget.addTab(admin_tab, "管理员功能")
-
-        # 权限控制
-        admin_tab.setEnabled(is_admin())
-        self.admin_tab = admin_tab
-
-    def _build_system_info_tab(self):
-        system_info_tab = QWidget()
-        system_info_layout = QVBoxLayout(system_info_tab)
-
-        self.cpu_label = QLabel()
-        self.memory_label = QLabel()
-        self.disk_label = QLabel()
-        self.net_label = QLabel()
-
-        for lbl in (self.cpu_label, self.memory_label, self.disk_label, self.net_label):
-            system_info_layout.addWidget(lbl)
-
-        # 立刻填充一次数据
-        self.update_system_info()
-
-        self.tab_widget.addTab(system_info_tab, "系统信息")
-
-    # ------------------------------------------------------------------
-    # 欢迎信息
-    # ------------------------------------------------------------------
-    def _print_welcome(self):
-        if not is_admin():
-            self.log_text.append('<span style="color: orange;">未检测到管理员权限，部分功能将不可用。</span>')
-            print("未检测到管理员权限，部分功能将不可用。")
-        else:
-            self.log_text.append('<span style="color: green;">已检测到管理员权限，所有功能均可使用。</span>')
-            print("已检测到管理员权限，所有功能均可使用。")
-
-        self.log_text.append(
-            "Windows PowerShell\n"
-            "版权所有 (C) Microsoft Corporation。保留所有权利。\n\n"
-            "尝试新的跨平台 PowerShell https://aka.ms/pscore6"
+    if locked:
+        body.append(
+            c.Paragraph(
+                text='当前未以管理员身份运行，该指令不可用。请以管理员身份重新启动本工具。',
+                class_name='alert alert-danger',
+            )
+        )
+    else:
+        body.append(c.Paragraph(text='确认无误后提交表单即可执行，执行结果可在“执行日志”中查看。'))
+        body.append(
+            c.Form(
+                submit_url=f'/api/cmd/{item.id}/run',
+                method='POST',
+                form_fields=[
+                    c.FormFieldInput(name='confirm', title='', html_type='hidden', initial='1')
+                ],
+            )
         )
 
-    # ------------------------------------------------------------------
-    # 系统信息刷新
-    # ------------------------------------------------------------------
-    def update_system_info(self):
-        cpu_percent = psutil.cpu_percent()
-        self.cpu_label.setText(f"CPU 使用率: {cpu_percent}%")
-
-        memory = psutil.virtual_memory()
-        self.memory_label.setText(f"内存使用率: {memory.percent}%")
-
-        disk = psutil.disk_usage(os.path.abspath(os.sep))
-        self.disk_label.setText(f"磁盘使用率: {disk.percent}%")
-
-        net_io = psutil.net_io_counters()
-        self.net_label.setText(
-            f"网络上传: {net_io.bytes_sent} 字节, 下载: {net_io.bytes_recv} 字节"
+    body.append(
+        c.Div(
+            class_name='mt-3 d-flex gap-2',
+            components=[
+                c.Button(text='返回分组', on_click=ev.GoToEvent(url=f'/group/{item.group_id}'), named_style='secondary'),
+                c.Button(text='返回首页', on_click=ev.GoToEvent(url='/'), named_style='secondary'),
+            ],
         )
+    )
 
-    # ------------------------------------------------------------------
-    # UI 组件封装
-    # ------------------------------------------------------------------
-    def add_button(self, outer_layout, button_text, command, log_widget, row, col):
-        button = QPushButton()
-        button.setStyleSheet(BTN_STYLE)
-        button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        button.setMinimumSize(200, 48)
+    return layout(*body)
 
-        label = QLabel(button_text)
-        label.setWordWrap(True)
-        label.setAlignment(Qt.AlignCenter)
 
-        button_layout = QVBoxLayout(button)
-        button_layout.addWidget(label)
-        button_layout.setContentsMargins(0, 0, 0, 0)
+@app.post('/api/cmd/{command_id}/run', response_model=FastUI, response_model_exclude_none=True)
+async def run_command(command_id: str) -> list[AnyComponent]:
+    """执行内置指令"""
+    item = COMMANDS.get(command_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail='未找到该指令')
 
-        button.clicked.connect(lambda: self.execute_command(command, log_widget))
-        outer_layout.addWidget(button, row, col)
+    if item.scope == 'admin' and not is_admin():
+        _append_log(item.name, item.command, '已拒绝', '缺少管理员权限，命令未执行。')
+        return [c.FireEvent(event=ev.GoToEvent(url='/logs'), message='缺少管理员权限，命令未执行')]
 
-    def add_custom_command(self, layout, label_text, log_widget, row=0, col=0):
-        label = QLabel(label_text)
-        label.setStyleSheet(LABEL_STYLE)
+    message = await submit_command(item.name, item.command)
+    return [c.FireEvent(event=ev.GoToEvent(url='/logs'), message=message)]
 
-        command_input = QLineEdit()
-        command_input.setStyleSheet(INPUT_STYLE)
 
-        button = QPushButton("执行命令")
-        button.setStyleSheet(CUSTOM_BTN_STYLE)
-        button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        button.setMinimumSize(200, 48)
-        button.clicked.connect(
-            lambda: self.execute_custom_command(command_input.text(), log_widget)
-        )
+@app.post('/api/custom/run', response_model=FastUI, response_model_exclude_none=True)
+async def run_custom_command(form: Annotated[CustomCommand, fastui_form(CustomCommand)]) -> list[AnyComponent]:
+    """执行手动输入的命令"""
+    command = form.command.strip()
+    if not command:
+        return [c.FireEvent(event=ev.GoToEvent(url='/'), message='请输入要执行的命令')]
 
-        if isinstance(layout, QGridLayout):
-            layout.addWidget(label, row, col, 1, 3)
-            layout.addWidget(command_input, row + 1, col, 1, 3)
-            layout.addWidget(button, row + 2, col, 1, 3, alignment=Qt.AlignCenter)
-        else:
-            layout.addWidget(label)
-            layout.addWidget(command_input)
-            layout.addWidget(button, alignment=Qt.AlignCenter)
+    message = await submit_command('自定义命令', command)
+    return [c.FireEvent(event=ev.GoToEvent(url='/logs'), message=message)]
 
-    # ------------------------------------------------------------------
-    # 命令执行入口
-    # ------------------------------------------------------------------
-    def execute_command(self, command, log_widget):
-        if confirm_action(self, f"你确定要执行命令: “{command}” 吗？"):
-            run_command(command, log_widget)
 
-    def execute_custom_command(self, command, log_widget):
-        if not command.strip():
-            QMessageBox.information(self, "提示", "请输入要执行的命令。")
-            return
-        if confirm_action(self, f"你确定要执行命令: “{command}” 吗？"):
-            run_command(command, log_widget)
+@app.get('/api/logs', response_model=FastUI, response_model_exclude_none=True)
+def logs_page() -> list[AnyComponent]:
+    """执行日志页"""
+    return layout(
+        c.Heading(text='执行日志', level=3),
+        c.Div(
+            class_name='mb-3',
+            components=[
+                c.Button(
+                    text='刷新日志',
+                    on_click=ev.PageEvent(name='refresh-logs'),
+                    named_style='secondary',
+                )
+            ],
+        ),
+        c.ServerLoad(
+            path='/logs/content',
+            load_trigger=ev.PageEvent(name='refresh-logs'),
+            components=log_components(),
+        ),
+    )
+
+
+@app.get('/api/logs/content', response_model=FastUI, response_model_exclude_none=True)
+def logs_fragment() -> list[AnyComponent]:
+    """日志片段，供 ServerLoad 局部刷新"""
+    return log_components()
+
+
+@app.get('/{path:path}', include_in_schema=False)
+async def html_page() -> HTMLResponse:
+    """所有页面入口：返回 FastUI 前端 HTML"""
+    return HTMLResponse(prebuilt_html(title=f'{APP_NAME} · {APP_VERSION}'))
 
 
 # ---------------------------------------------------------------------------
 # 启动入口
 # ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = SystemOptimizer()
-    window.show()
+def main() -> None:
+    import uvicorn
 
-    print(f"{APP_NAME} 已启动")
-    print("EndlessPixel by system_mini")
-    print("版本信息：")
-    print(APP_VERSION)
-    print("感谢您的使用！")
+    print(f'{APP_NAME} 已启动：http://{HOST}:{PORT}')
+    print('EndlessPixel by system_mini')
+    print(f'版本信息：{APP_VERSION}')
+    print(f'已加载指令：{len(COMMANDS)} 条 / 分组 {len(GROUPS)} 个')
+    print('感谢您的使用！')
 
-    sys.exit(app.exec_())
+    threading.Timer(1.0, lambda: webbrowser.open(f'http://{HOST}:{PORT}')).start()
+    uvicorn.run(app, host=HOST, port=PORT, log_level='info')
+
+
+if __name__ == '__main__':
+    main()
