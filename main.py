@@ -39,7 +39,7 @@ from pydantic import BaseModel
 # 应用常量
 # ---------------------------------------------------------------------------
 APP_NAME = '系统优化工具'
-APP_VERSION = 'b2.0'
+APP_VERSION = '1.0.0'
 HOST = '127.0.0.1'
 PORT = 8000
 
