@@ -56,6 +56,8 @@ python main.py
 | push tag（如 `v1.0.0`） | 额外创建 Release 并附带 exe |
 | 手动 | Actions → Build Windows EXE → Run workflow |
 
+最新版本：<https://github.com/EndlessPixel/WindowsSystemTools/releases/latest>
+
 构建完成后会启动 exe 并请求 `/api/` 做冒烟测试，通过才上传产物。
 
 双击 exe 即可运行（等价于 `python main.py`）。首次运行时，内置的 `commands.json` 会被复制到 exe 同级目录，之后直接编辑该文件即可增删指令。
