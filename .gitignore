@@ -3,3 +3,8 @@ __pycache__/
 .codebuddy/
 .venv/
 venv/
+
+# PyInstaller 构建产物（CI 使用命令行参数构建，不提交 spec）
+build/
+dist/
+*.spec

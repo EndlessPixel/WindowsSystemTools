@@ -6,6 +6,7 @@
 ![FastUI](https://img.shields.io/badge/UI-FastUI-009688?logo=fastapi&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![Build EXE](https://github.com/EndlessPixel/WindowsSystemTools/actions/workflows/build-exe.yml/badge.svg)
 ![Stars](https://img.shields.io/github/stars/EndlessPixel/WindowsSystemTools?style=flat&color=gold)
 
 一个用 **FastUI（FastAPI）** 重写的 Windows 系统快捷管理工具：浏览器打开即用，所有指令集中维护在 `commands.json`，改 JSON 就能增删功能，不用碰代码。
@@ -44,6 +45,27 @@ python main.py
 4. **执行日志**：查看每条命令的状态与输出，支持刷新
 
 命令在后台线程执行：60 秒内返回结果，超时则转入后台继续运行，结果同样写入日志；单条命令最长执行 600 秒。
+
+## 下载可执行文件
+
+仓库配置了 GitHub Actions（[`build-exe.yml`](./.github/workflows/build-exe.yml)），在 `windows-latest` 上用 PyInstaller 打包单文件 exe：
+
+| 触发方式 | 结果 |
+| --- | --- |
+| push / PR 到 `main` | 构建并上传 Artifact `WindowsSystemTools-windows` |
+| push tag（如 `v1.0.0`） | 额外创建 Release 并附带 exe |
+| 手动 | Actions → Build Windows EXE → Run workflow |
+
+构建完成后会启动 exe 并请求 `/api/` 做冒烟测试，通过才上传产物。
+
+双击 exe 即可运行（等价于 `python main.py`）。首次运行时，内置的 `commands.json` 会被复制到 exe 同级目录，之后直接编辑该文件即可增删指令。
+
+本地打包：
+
+```bash
+pip install "pyinstaller>=6.3"
+pyinstaller --noconfirm --clean --onefile --name WindowsSystemTools --add-data "commands.json;." --collect-all fastui --collect-all uvicorn main.py
+```
 
 ## 指令配置
 

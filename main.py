@@ -18,6 +18,7 @@ import json
 import os
 import platform
 import subprocess
+import sys
 import threading
 import webbrowser
 from collections import deque
@@ -42,8 +43,46 @@ APP_VERSION = 'b2.0'
 HOST = '127.0.0.1'
 PORT = 8000
 
-BASE_DIR = Path(__file__).resolve().parent
-COMMANDS_FILE = BASE_DIR / 'commands.json'
+COMMANDS_FILE_NAME = 'commands.json'
+
+
+def _resource_dir() -> Path:
+    """代码/内置资源所在目录（PyInstaller onefile 时是临时解压目录）"""
+    meipass = getattr(sys, '_MEIPASS', None)
+    if meipass:
+        return Path(meipass)
+    return Path(__file__).resolve().parent
+
+
+def _app_dir() -> Path:
+    """可执行文件所在目录，用于存放可编辑的 commands.json"""
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def resolve_commands_file() -> Path:
+    """定位指令文件：优先用程序目录下的版本，缺失时从内置资源导出一份
+
+    打包成 exe 后，内置指令无法修改；首次启动时把它复制到 exe 同级目录，
+    用户即可继续通过编辑 commands.json 增删功能。
+    """
+    target = _app_dir() / COMMANDS_FILE_NAME
+    if target.exists():
+        return target
+
+    bundled = _resource_dir() / COMMANDS_FILE_NAME
+    if bundled != target and bundled.exists():
+        try:
+            target.write_bytes(bundled.read_bytes())
+            return target
+        except OSError:
+            return bundled
+    return target
+
+
+BASE_DIR = _app_dir()
+COMMANDS_FILE = resolve_commands_file()
 
 COMMAND_TIMEOUT = 600   # 单条命令的最长执行时间（秒）
 WAIT_TIMEOUT = 60       # 请求等待命令返回的时间，超时后转入后台继续执行
@@ -600,6 +639,7 @@ def main() -> None:
     print('EndlessPixel by system_mini')
     print(f'版本信息：{APP_VERSION}')
     print(f'已加载指令：{len(COMMANDS)} 条 / 分组 {len(GROUPS)} 个')
+    print(f'指令文件：{COMMANDS_FILE}')
     print('感谢您的使用！')
 
     threading.Timer(1.0, lambda: webbrowser.open(f'http://{HOST}:{PORT}')).start()
