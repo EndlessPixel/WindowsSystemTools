@@ -1,5 +1,13 @@
 # WindowsSystemTools
 
+![Version](https://img.shields.io/badge/version-b2.0-orange)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Windows-blue?logo=windows&logoColor=white)
+![FastUI](https://img.shields.io/badge/UI-FastUI-009688?logo=fastapi&logoColor=white)
+![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Stars](https://img.shields.io/github/stars/EndlessPixel/WindowsSystemTools?style=flat&color=gold)
+
 一个用 **FastUI（FastAPI）** 重写的 Windows 系统快捷管理工具：浏览器打开即用，所有指令集中维护在 `commands.json`，改 JSON 就能增删功能，不用碰代码。
 
 ## 特性
